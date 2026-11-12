@@ -7,7 +7,6 @@ import {
   DEFAULT_HULA_RULES,
   findMelds,
   getHulaLegalActions,
-  getHulaView,
   handPoints,
   hulaCardId,
   hulaCardPoints,

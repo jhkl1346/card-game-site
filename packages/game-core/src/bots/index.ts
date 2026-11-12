@@ -1,3 +1,4 @@
 export * from './config.js';
 export * from './stud7-bot.js';
 export * from './holdem-bot.js';
+export * from './hula-bot.js';

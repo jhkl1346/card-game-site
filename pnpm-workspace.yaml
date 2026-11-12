@@ -1,3 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# 설치 스크립트 실행을 허용할 의존성 (나머지는 pnpm 기본값대로 차단)
+allowBuilds:
+  esbuild: true

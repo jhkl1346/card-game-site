@@ -4,14 +4,17 @@ import { deleteExpiredSessions } from './auth/sessions.js';
 import { DEFAULT_AUTH_CONFIG } from './config/auth.js';
 import { loadEnv } from './config/env.js';
 import { openDb } from './db/client.js';
+import { WalletService } from './wallet/service.js';
 
 /**
  * 서버 진입점: 환경 변수 → DB 연결·마이그레이션 → HTTP 앱 시작.
- * 방 관리와 Socket.IO는 6단계에서 추가한다.
+ * HTTP API(인증, 지갑)와 Socket.IO(방, 게임)를 같은 포트에서 제공한다.
  */
 const env = loadEnv();
 const handle = await openDb(env.databaseUrl);
-const app = await buildApp({
+// 지난번 서버가 비정상 종료됐다면 남아 있는 테이블 칩(진행 중이던 판의 시작 전 칩)을 먼저 환불한다
+const refunded = await new WalletService(handle.db).refundOpenStakes();
+const { app } = await buildApp({
   db: handle.db,
   secureCookies: env.nodeEnv === 'production',
   trustProxy: env.trustProxy,
@@ -44,3 +47,4 @@ process.once('SIGTERM', shutdown);
 
 await app.listen({ port: env.port, host: env.nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1' });
 app.log.info(`DB: ${handle.kind === 'pglite' ? '로컬 PGlite' : 'PostgreSQL'}`);
+if (refunded > 0) app.log.info(`서버 재시작으로 무효가 된 판의 칩을 ${refunded}명에게 환불했습니다.`);

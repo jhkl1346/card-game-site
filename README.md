@@ -7,7 +7,7 @@
 - 아이디/비밀번호 로그인, 칩·전적·닉네임 영구 저장
 - 칩은 **가상 재화**이며 실제 돈과 연결되지 않습니다.
 
-> 진행 상황: 5단계(DB와 회원가입·로그인)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
+> 진행 상황: 6단계(게임 서버: 방·Socket.IO·칩 정산)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
 
 ## 문서
 - [`PROMPT.md`](PROMPT.md): 전체 요구사항
@@ -23,7 +23,7 @@
 ## 폴더 구조
 ```
 apps/web              프론트엔드 (React + TypeScript + Vite)
-apps/server           백엔드 (Node.js + TypeScript, Fastify, Drizzle ORM, Socket.IO 예정)
+apps/server           백엔드 (Node.js + TypeScript, Fastify, Socket.IO, Drizzle ORM)
 packages/game-core    서버·클라이언트 공유 게임 로직 (카드, 셔플, 족보 판정기, 게임 엔진, 봇)
 ```
 
@@ -71,6 +71,19 @@ pnpm --filter @card-game/server db:generate
 - 로그인 5번 실패 시 그 아이디와 IP를 15분간 잠급니다. 실패 메시지는 항상 "아이디 또는 비밀번호가 올바르지 않습니다."입니다.
 - 비밀번호 찾기는 없습니다(이메일을 받지 않음). 비밀번호를 잊으면 복구할 수 없습니다.
 
+### 지갑 API
+| 요청 | 설명 |
+|---|---|
+| `GET /api/wallet` | 지갑 잔액, 테이블 칩, 구제 칩을 받을 수 있는지 |
+| `POST /api/wallet/relief` | 구제 칩 5,000개 받기 (잔액이 정확히 0이고 테이블 칩도 없을 때만, 횟수 제한 없음) |
+
+### 게임 서버 (Socket.IO)
+- 같은 포트에서 Socket.IO로 방 만들기·입장·빠른 입장·혼자 하기·관전·강퇴·방장 넘기기·게임 액션·채팅을 처리합니다. 이벤트 목록은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 4장에 있습니다.
+- 셔플·분배·승패 판정은 서버에서만 하고, 사람마다 자기 시야로 만든 스냅샷만 보냅니다(상대 카드·덱·번 카드는 전송하지 않음).
+- 칩: 앉을 때 바이인만큼 지갑에서 빠지고, 판이 끝날 때마다 결과를 한 트랜잭션으로 기록하며(같은 판 중복 정산 방지), 일어날 때 테이블 칩이 지갑으로 돌아옵니다. 서버가 재시작되면 진행 중이던 판은 무효가 되고 판 시작 전 칩으로 환불됩니다.
+- 접속이 끊기면 30초 동안 자리를 지키고, 그 뒤에는 봇이 대신합니다. 같은 계정으로 다시 접속하면 방으로 돌아갑니다. 다른 곳에서 로그인하면 기존 접속은 끊깁니다.
+- 숫자 제한(최대 방 수, 관전자 수, 채팅, 요청 빈도, 턴 시간 등)은 `apps/server/src/config/limits.ts`의 `ServerLimits`에 있습니다.
+
 ## 테스트와 검사
 ```bash
 pnpm lint
@@ -109,7 +122,7 @@ pnpm sim:hula
 pnpm sim:hula --players 4 --games 500
 ```
 
-`pnpm test`에는 족보 판정 **전수 테스트**(5장 조합 2,598,960가지의 족보별 개수 검증)와 서버 인증 테스트(메모리 PGlite 사용)가 들어 있으며, 몇십 초 안에 끝납니다.
+`pnpm test`에는 족보 판정 **전수 테스트**(5장 조합 2,598,960가지의 족보별 개수 검증)와 서버 테스트(인증, 지갑·구제 칩, 방 진행, Socket.IO 통합. 메모리 PGlite 사용)가 들어 있으며, 몇십 초 안에 끝납니다.
 
 ## 게임 규칙 요약
 ### 7포커 (2~5인)
@@ -139,7 +152,7 @@ pnpm sim:hula --players 4 --games 500
 
 ## 기술 스택 (모두 무료/오픈소스)
 - 프론트엔드: React, Vite (Tailwind CSS, Framer Motion은 7단계에서 추가)
-- 백엔드: Node.js, Fastify, Socket.IO(6단계), Drizzle ORM, argon2id(@node-rs/argon2), zod
+- 백엔드: Node.js, Fastify, Socket.IO, Drizzle ORM, argon2id(@node-rs/argon2), zod
 - 공통 게임 로직: `packages/game-core` (순수 TypeScript, Node/브라우저 API 의존 없음)
 - DB: 로컬 PGlite / 배포 외부 무료 PostgreSQL (서비스는 9단계에서 확정). 원래 계획은 로컬 SQLite였지만, 스키마를 한 벌로 관리하려고 5단계에서 PGlite로 바꿨습니다.
 - 테스트: Vitest / 린트: ESLint + typescript-eslint / CI: GitHub Actions

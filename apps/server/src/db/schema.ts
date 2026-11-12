@@ -73,7 +73,11 @@ export const wallets = pgTable(
   (t) => [check('wallets_balance_nonnegative', sql`${t.balance} >= 0`)],
 );
 
-export const chipLogReasons = ['signup', 'game', 'relief', 'buyin', 'refund'] as const;
+/**
+ * signup: 가입 지급, buyin: 방에 앉을 때 지갑→테이블, game: 한 판의 칩 증감(기록용, 지갑은 그대로),
+ * cashout: 일어날 때 테이블→지갑, refund: 서버 재시작으로 무효가 된 판의 환불, relief: 구제 칩
+ */
+export const chipLogReasons = ['signup', 'game', 'relief', 'buyin', 'cashout', 'refund'] as const;
 export type ChipLogReason = (typeof chipLogReasons)[number];
 
 export const chipLogs = pgTable(
@@ -123,6 +127,23 @@ export const gameResultPlayers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.gameId, t.userId] }), index('game_result_players_user_id_idx').on(t.userId)],
 );
+
+/**
+ * 테이블에 앉아 있는 칩 (바이인 후 아직 지갑으로 돌아오지 않은 칩).
+ * - 바이인할 때 만들고, 판이 끝날 때마다 그 판의 정산과 같은 트랜잭션에서 amount를 최신 테이블 칩으로 바꾼다.
+ * - 일어날 때 지우면서 amount를 지갑에 돌려준다.
+ * - 서버가 재시작되면 남아 있는 행이 곧 "진행 중이던 판이 시작되기 전의 테이블 칩"이므로 그대로 환불한다.
+ * 한 사람은 한 번에 한 방에만 앉을 수 있다(user_id 고유).
+ */
+export const tableStakes = pgTable('table_stakes', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  roomId: text('room_id').notNull(),
+  amount: bigint('amount', { mode: 'number' }).notNull(),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [check('table_stakes_amount_nonnegative', sql`${t.amount} >= 0`)]);
 
 /** 로그인 실패 기록. key는 "u:아이디" 또는 "ip:주소" */
 export const loginAttempts = pgTable('login_attempts', {

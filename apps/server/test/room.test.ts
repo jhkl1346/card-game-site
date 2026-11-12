@@ -60,6 +60,7 @@ const bob = { userId: '00000000-0000-4000-8000-00000000000b', nickname: '밥' };
 let wallet: MemoryWallet;
 let manager: RoomManager;
 let notices: Array<{ userId: string; message: string }>;
+let leftUsers: string[];
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
@@ -67,6 +68,7 @@ beforeEach(() => {
   wallet.balances.set(alice.userId, 20_000);
   wallet.balances.set(bob.userId, 20_000);
   notices = [];
+  leftUsers = [];
   const rng = seeded(7);
   manager = new RoomManager({
     wallet,
@@ -78,6 +80,7 @@ beforeEach(() => {
       roomClosed: () => undefined,
       lobbyChanged: () => undefined,
       notice: (userId, message) => notices.push({ userId, message }),
+      memberLeft: (_room, userId) => leftUsers.push(userId),
     },
     logError: (message, error) => {
       throw new Error(`${message}: ${String(error)}`);
@@ -182,6 +185,8 @@ describe('나가기·접속 끊김·재접속', () => {
     expect(wallet.balances.get(alice.userId)).toBe(20_000 - 5_000 + recorded.finalChips);
     // 사람이 없으니 방이 닫힌다
     expect(manager.getRoom(room.id)).toBeUndefined();
+    // 판이 끝나 일어난 사람에게 로비 화면용 스냅샷을 보내도록 알린다
+    expect(leftUsers).toEqual([alice.userId]);
   });
 
   it('접속이 끊기면 30초 동안 자리를 지키고, 그 뒤에는 봇이 대신하며, 다시 접속하면 돌아온다', async () => {
@@ -201,6 +206,21 @@ describe('나가기·접속 끊김·재접속', () => {
     } else {
       expect(wallet.stakes.has(alice.userId)).toBe(false);
     }
+  });
+
+  it('칩을 모두 잃으면 관전자로 방에 남고, 다시 빈자리에 앉을 수 있다', async () => {
+    // 점당 10칩, 바이인 최소(200) → 한 판만 크게 져도 칩이 바닥난다
+    const room = await manager.createSingle(alice, 'hula', { pointValue: 10, buyIn: 200 });
+    for (let i = 0; i < 120 && room.seatOf(alice.userId); i++) await tick(10_000);
+    expect(room.seatOf(alice.userId)).toBeNull();
+    expect(room.hasMember(alice.userId)).toBe(true);
+    expect(notices.some((n) => n.userId === alice.userId && n.message.startsWith('칩을 모두 잃어'))).toBe(true);
+    expect(leftUsers).not.toContain(alice.userId);
+    // 봇 한 자리를 비워 빈자리를 만든 뒤 다시 앉는다
+    const botIndex = room.seats.findIndex((s) => s?.isBot);
+    room.seats[botIndex] = null;
+    await manager.sit(alice);
+    expect(room.seatOf(alice.userId)).not.toBeNull();
   });
 
   it('한 사람은 한 방에만 있을 수 있다', async () => {

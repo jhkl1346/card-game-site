@@ -19,6 +19,8 @@ export interface RoomManagerEvents {
   lobbyChanged(): void;
   /** 한 사람에게 안내 */
   notice(userId: string, message: string): void;
+  /** 판이 끝나 자리에서 일어나는 등으로 방에서 빠진 사람 (로비 화면으로 돌려보낼 스냅샷을 보낸다) */
+  memberLeft?(room: GameRoom, userId: string): void;
 }
 
 export interface RoomManagerDeps {
@@ -88,7 +90,10 @@ export class RoomManager {
   private onRoomChange(room: GameRoom): void {
     // 방에서 빠진 사람의 연결 정보 정리
     for (const [userId, roomId] of this.userRoom) {
-      if (roomId === room.id && !room.hasMember(userId)) this.userRoom.delete(userId);
+      if (roomId === room.id && !room.hasMember(userId)) {
+        this.userRoom.delete(userId);
+        this.deps.events.memberLeft?.(room, userId);
+      }
     }
     this.deps.events.roomChanged(room);
     this.deps.events.lobbyChanged();

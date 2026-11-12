@@ -1,0 +1,504 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T06:10:40.783Z",
+  "title": "Design System: 함께 치는 카드 게임",
+  "extensions": {
+    "colorMeta": {
+      "lacquer": {
+        "role": "neutral",
+        "displayName": "옻칠 검정",
+        "canonical": "#16110f",
+        "tonalRamp": [
+          "#221d1b",
+          "#403530",
+          "#624e47",
+          "#876a5e",
+          "#a5897e",
+          "#bcaba4",
+          "#d5ccc8",
+          "#efeceb"
+        ]
+      },
+      "lacquer-2": {
+        "role": "neutral",
+        "displayName": "옻칠 상판 빛",
+        "canonical": "#231a16",
+        "tonalRamp": [
+          "#231d1a",
+          "#42342f",
+          "#644e44",
+          "#8c695a",
+          "#a9887a",
+          "#bfaaa1",
+          "#d7cbc7",
+          "#f0eceb"
+        ]
+      },
+      "lacquer-3": {
+        "role": "neutral",
+        "displayName": "옻칠 버튼 면",
+        "canonical": "#2e231d",
+        "tonalRamp": [
+          "#231d1a",
+          "#42352f",
+          "#644f44",
+          "#8c6b5a",
+          "#a98b7a",
+          "#bfaca1",
+          "#d6ccc7",
+          "#f0eceb"
+        ]
+      },
+      "rim": {
+        "role": "primary",
+        "displayName": "붉은 칠",
+        "canonical": "#7a1f22",
+        "tonalRamp": [
+          "#2b1313",
+          "#511f21",
+          "#7f2a2d",
+          "#b43236",
+          "#ce5458",
+          "#d7898c",
+          "#e3babb",
+          "#f4e7e7"
+        ]
+      },
+      "rim-deep": {
+        "role": "primary",
+        "displayName": "깊은 붉은 칠",
+        "canonical": "#4a1214",
+        "tonalRamp": [
+          "#2b1213",
+          "#521f20",
+          "#80292c",
+          "#b53035",
+          "#d05357",
+          "#d8888b",
+          "#e4b9bb",
+          "#f4e6e7"
+        ]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "자개 금",
+        "canonical": "#e2c27d",
+        "tonalRamp": [
+          "#2b2312",
+          "#53421d",
+          "#816527",
+          "#b88c2d",
+          "#d3a950",
+          "#dabf86",
+          "#e5d7b8",
+          "#f4f0e6"
+        ]
+      },
+      "gold-soft": {
+        "role": "primary",
+        "displayName": "바랜 금",
+        "canonical": "#b89a5c",
+        "tonalRamp": [
+          "#272117",
+          "#493e28",
+          "#705e38",
+          "#9e8248",
+          "#ba9f69",
+          "#cab996",
+          "#dcd3c1",
+          "#f1efe9"
+        ]
+      },
+      "floor": {
+        "role": "neutral",
+        "displayName": "나뭇결 바닥",
+        "canonical": "#3a2418",
+        "tonalRamp": [
+          "#271c16",
+          "#493327",
+          "#724b37",
+          "#a06545",
+          "#bc8567",
+          "#cba895",
+          "#ddcac0",
+          "#f2ece9"
+        ]
+      },
+      "floor-deep": {
+        "role": "neutral",
+        "displayName": "깊은 바닥",
+        "canonical": "#24160f",
+        "tonalRamp": [
+          "#271c16",
+          "#493227",
+          "#714a37",
+          "#a06446",
+          "#bc8367",
+          "#cba795",
+          "#ddcac0",
+          "#f2ece9"
+        ]
+      },
+      "ivory": {
+        "role": "neutral",
+        "displayName": "상아",
+        "canonical": "#f5eedf",
+        "tonalRamp": [
+          "#292214",
+          "#4e4022",
+          "#79622f",
+          "#ac8839",
+          "#c7a55c",
+          "#d2bc8e",
+          "#e1d5bc",
+          "#f3efe7"
+        ]
+      },
+      "ivory-dim": {
+        "role": "neutral",
+        "displayName": "흐린 상아",
+        "canonical": "#d9cfbb",
+        "tonalRamp": [
+          "#242019",
+          "#443c2c",
+          "#685b40",
+          "#927d54",
+          "#ae9b74",
+          "#c2b69d",
+          "#d8d2c5",
+          "#f0eeea"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "누른 한지",
+        "canonical": "#cbbfa8",
+        "tonalRamp": [
+          "#24201a",
+          "#433b2e",
+          "#665a42",
+          "#8e7b57",
+          "#ab9977",
+          "#c0b59f",
+          "#d7d1c6",
+          "#f0eeea"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "먹",
+        "canonical": "#1c1714",
+        "tonalRamp": [
+          "#221e1b",
+          "#3f3631",
+          "#605148",
+          "#856e60",
+          "#a28d80",
+          "#bbada5",
+          "#d4cdc9",
+          "#efedeb"
+        ]
+      },
+      "suit-red": {
+        "role": "tertiary",
+        "displayName": "카드 붉은 무늬",
+        "canonical": "#a3262a",
+        "tonalRamp": [
+          "#2b1213",
+          "#521e20",
+          "#80282b",
+          "#b72f33",
+          "#d15156",
+          "#d9878a",
+          "#e4b9ba",
+          "#f4e6e7"
+        ]
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "경고 산호",
+        "canonical": "#ff9f95",
+        "tonalRamp": [
+          "#330e0a",
+          "#62160e",
+          "#9b1a0d",
+          "#e01a05",
+          "#f83e2b",
+          "#f17b6e",
+          "#f1b2ac",
+          "#f8e4e2"
+        ]
+      },
+      "ok": {
+        "role": "neutral",
+        "displayName": "확인 연두",
+        "canonical": "#a8d8b0",
+        "tonalRamp": [
+          "#172619",
+          "#28482d",
+          "#396f42",
+          "#499c57",
+          "#6ab877",
+          "#97c99f",
+          "#c1dcc6",
+          "#e9f1ea"
+        ]
+      },
+      "pearl": {
+        "role": "secondary",
+        "displayName": "자개 (Mother-of-Pearl)",
+        "canonical": "linear-gradient(115deg, #a9e1d6, #e3c6ef 30%, #f6e7b0 55%, #b9d8f2 80%, #a9e1d6)",
+        "tonalRamp": [
+          "#a9e1d6",
+          "#e3c6ef",
+          "#f6e7b0",
+          "#b9d8f2"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "로그인 화면 큰 제목 하나."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "대화상자 제목, 테이블 대기 안내 제목."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "상단 막대의 게임·방 제목, 로비 게임 이름과 방 목록 제목(금색)."
+      },
+      "pot-number": {
+        "displayName": "Pot Number",
+        "purpose": "판돈 숫자. 바뀔 때 1.12배에서 제자리로."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "설명 문단, 입력칸, 규칙 본문."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "결정 문장, 방 정보, 힌트·오류."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "자리 칩, 덱 수, 배지. 최소 글자 크기 12px."
+      }
+    },
+    "shadows": [
+      {
+        "name": "table",
+        "value": "0 0 0 7px var(--color-rim), 0 0 0 9px var(--color-rim-deep), 0 14px 22px rgb(0 0 0 / 0.55)",
+        "purpose": "교자상 붉은 칠 테두리 고리와 상판 그림자."
+      },
+      {
+        "name": "card",
+        "value": "0 3px 6px rgb(0 0 0 / 0.45)",
+        "purpose": "모든 카드와 덱."
+      },
+      {
+        "name": "lifted",
+        "value": "0 6px 14px rgb(0 0 0 / 0.5)",
+        "purpose": "차례인 자리, 이긴 자리."
+      },
+      {
+        "name": "popover",
+        "value": "0 8px 20px rgb(0 0 0 / 0.45)",
+        "purpose": "자리 관리 메뉴, 토스트."
+      },
+      {
+        "name": "modal",
+        "value": "0 18px 40px rgb(0 0 0 / 0.55)",
+        "purpose": "대화상자, 로그인 패널."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-settle",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "모든 이동·등장의 감속 곡선."
+      },
+      {
+        "name": "card-deal",
+        "value": "spring stiffness 420, damping 32; from deck at -8deg",
+        "purpose": "덱에서 자리로 카드 분배. 자리마다 0.05s, 장마다 0.25s 지연."
+      },
+      {
+        "name": "card-flip",
+        "value": "rotateY 90deg -> 0, 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "앞면이 처음 보일 때 뒤집기."
+      },
+      {
+        "name": "chips-to-pot",
+        "value": "0.45s cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "베팅 칩이 판돈 쪽으로 미끄러져 사라짐."
+      },
+      {
+        "name": "burn-toss",
+        "value": "0.5s cubic-bezier(0.16, 1, 0.3, 1), rotate -14deg, opacity 0.7",
+        "purpose": "홀덤 번 카드를 덱 옆으로 엎어 던짐. 이어지는 보드 카드는 0.5s 뒤 펼침."
+      },
+      {
+        "name": "payout",
+        "value": "1.3s cubic-bezier(0.16, 1, 0.3, 1), delay 0.2s",
+        "purpose": "정산 칩이 가운데에서 이긴 자리로."
+      },
+      {
+        "name": "dialog-in",
+        "value": "0.28s cubic-bezier(0.16, 1, 0.3, 1), y 16px, blur 4px -> 0",
+        "purpose": "대화상자 등장."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation/transition-duration 0.01ms",
+        "purpose": "prefers-reduced-motion: reduce 에서 모든 움직임 제거."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stage",
+        "value": "844x390 fixed, scale = min(vw/844, vh/390, 1.9)"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "short-landscape",
+        "value": "max-height: 460px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "화면당 하나뿐인 권장 행동. 붉은 칠 + 금색 테두리.",
+      "html": "<button class=\"ds-btn-primary\">혼자 하기</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--color-gold, #e2c27d);background:var(--color-rim,#7a1f22);color:var(--color-gold, #e2c27d);font-family:'Noto Sans KR',system-ui,sans-serif;font-weight:700;font-size:15px;transition:background-color .15s}.ds-btn-primary:hover{background:#8d2629}.ds-btn-primary:active{background:var(--color-rim-deep,#4a1214)}.ds-btn-primary:focus-visible{outline:2px solid var(--color-gold, #e2c27d);outline-offset:2px}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "보조 행동(방 만들기, 빠른 입장, 입장).",
+      "html": "<button class=\"ds-btn-quiet\">방 만들기</button>",
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid rgb(226 194 125 / .3);background:var(--color-lacquer-3,#2e231d);color:var(--color-ivory,#f5eedf);font-family:'Noto Sans KR',system-ui,sans-serif;font-weight:700;font-size:15px;transition:background-color .15s,border-color .15s}.ds-btn-quiet:hover{border-color:rgb(226 194 125 / .6);background:#3a2c24}.ds-btn-quiet:focus-visible{outline:2px solid var(--color-gold, #e2c27d);outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "족보·나가기·로그아웃 같은 주변 조작.",
+      "html": "<button class=\"ds-btn-ghost\">족보·규칙</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:8px;border:1px solid rgb(226 194 125 / .45);background:transparent;color:var(--color-gold, #e2c27d);font-family:'Noto Sans KR',system-ui,sans-serif;font-weight:700;font-size:14px;transition:background-color .15s}.ds-btn-ghost:hover{background:rgb(226 194 125 / .1)}.ds-btn-ghost:focus-visible{outline:2px solid var(--color-gold, #e2c27d);outline-offset:2px}"
+    },
+    {
+      "name": "Decision Bar",
+      "kind": "custom",
+      "refersTo": "act-button",
+      "description": "아래 띠 오른쪽: 한 문장, 남은 초, 금색 타이머 막대, 46px 결정 버튼 줄.",
+      "html": "<div class=\"ds-decision\"><p class=\"ds-decision-s\">콜 <strong>100</strong> 하면 계속 · 남은 <strong>18초</strong></p><div class=\"ds-timer\"><i style=\"width:80%\"></i></div><div class=\"ds-acts\"><button class=\"ds-act\">폴드</button><button class=\"ds-act ds-act-primary\">콜<small>100</small></button><button class=\"ds-act\">레이즈<small>200~</small></button><button class=\"ds-act\">올인<small>5,000</small></button></div></div>",
+      "css": ".ds-decision{display:flex;flex-direction:column;align-items:flex-end;padding:12px 16px;background:linear-gradient(to bottom,transparent,rgb(10 7 5 / .92) 45%);font-family:'Noto Sans KR',system-ui,sans-serif;font-variant-numeric:tabular-nums}.ds-decision-s{margin:0 0 6px;font-size:13px;color:var(--color-muted,#cbbfa8)}.ds-decision-s strong{font-size:18px;color:var(--color-ivory,#f5eedf)}.ds-timer{width:100%;height:4px;border-radius:9999px;background:#3a2d24;margin-bottom:8px}.ds-timer i{display:block;height:100%;border-radius:9999px;background:var(--color-gold, #e2c27d)}.ds-acts{display:flex;gap:8px}.ds-act{display:flex;flex-direction:column;align-items:center;justify-content:center;height:46px;min-width:72px;padding:0 12px;border-radius:8px;border:1px solid rgb(226 194 125 / .3);background:var(--color-lacquer-3,#2e231d);color:var(--color-ivory,#f5eedf);font:700 15px/1.2 'Noto Sans KR',sans-serif;transition:transform .1s,border-color .15s}.ds-act small{font-size:12px;opacity:.85}.ds-act:hover{border-color:rgb(226 194 125 / .6)}.ds-act:active{transform:scale(.95)}.ds-act:focus-visible{outline:2px solid var(--color-gold, #e2c27d);outline-offset:2px}.ds-act-primary{background:var(--color-rim,#7a1f22);border-color:var(--color-gold, #e2c27d);color:var(--color-gold, #e2c27d)}.ds-act-primary:hover{background:#8d2629}"
+    },
+    {
+      "name": "Seat Plate",
+      "kind": "custom",
+      "refersTo": "seat-plate",
+      "description": "다른 사람 자리: 자개 원판 아바타와 이름·칩. 차례면 금색 테두리와 시간 고리.",
+      "html": "<div class=\"ds-seat ds-seat-turn\"><span class=\"ds-seat-ring\"><span class=\"ds-seat-av\">하</span></span><span class=\"ds-seat-t\"><b>하늘봇</b><em>5,000</em></span></div>",
+      "css": ".ds-seat{display:flex;align-items:center;gap:8px;width:126px;height:44px;box-sizing:border-box;padding:4px 10px 4px 4px;border-radius:9999px;border:1px solid rgb(226 194 125 / .25);background:rgb(16 11 9 / .94);color:var(--color-ivory,#f5eedf);font-family:'Noto Sans KR',sans-serif;transition:transform .2s}.ds-seat-turn{border-color:var(--color-gold, #e2c27d);box-shadow:0 6px 14px rgb(0 0 0 / .5);transform:translateY(-3px)}.ds-seat-ring{display:grid;place-items:center;width:34px;height:34px;border-radius:9999px;background:conic-gradient(#e2c27d 0deg 260deg,#3a2d24 260deg 360deg)}.ds-seat-av{display:grid;place-items:center;width:30px;height:30px;border-radius:9999px;background:linear-gradient(115deg,#a9e1d6,#e3c6ef 30%,#f6e7b0 55%,#b9d8f2 80%,#a9e1d6);color:#1c1714;font:700 14px 'Gowun Batang',serif}.ds-seat-t{display:flex;flex-direction:column;line-height:1.2}.ds-seat-t b{font-size:13px}.ds-seat-t em{font-style:normal;font-size:12px;font-weight:700;color:var(--color-gold, #e2c27d)}"
+    },
+    {
+      "name": "Playing Card",
+      "kind": "card",
+      "refersTo": "playing-card-md",
+      "description": "상아색 앞면(먹·붉은 무늬)과 붉은 칠 금빗금 뒷면.",
+      "html": "<div class=\"ds-cards\"><div class=\"ds-card\"><b>A</b><svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 1.8 20.2 12 12 22.2 3.8 12z\"/></svg></div><div class=\"ds-card ds-card-back\"></div></div>",
+      "css": ".ds-cards{display:flex;gap:7px}.ds-card{position:relative;width:46px;height:64px;border-radius:6px;background:var(--color-ivory,#f5eedf);color:var(--color-suit-red,#a3262a);box-shadow:0 3px 6px rgb(0 0 0 / .45);font:900 16px/1 'Noto Sans KR',sans-serif}.ds-card b{position:absolute;left:5px;top:3px}.ds-card svg{position:absolute;right:5px;bottom:5px;width:22px;height:22px}.ds-card-back{box-sizing:border-box;border:2.5px solid #f5eedf;background-color:#7a1f22;background-image:repeating-linear-gradient(45deg,rgb(226 194 125 / .35) 0 2px,transparent 2px 7px)}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "옻칠 바탕 입력칸, 초점 시 금색 테두리.",
+      "html": "<input class=\"ds-input\" placeholder=\"비공개 방 입장 코드\">",
+      "css": ".ds-input{height:44px;width:240px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid rgb(226 194 125 / .25);background:var(--color-lacquer,#16110f);color:var(--color-ivory,#f5eedf);caret-color:#e2c27d;font:500 15px 'Noto Sans KR',sans-serif}.ds-input::placeholder{color:rgb(203 191 168 / .7)}.ds-input:focus{outline:none;border-color:var(--color-gold, #e2c27d)}.ds-input[aria-invalid=true]{border-color:var(--color-danger,#ff9f95)}"
+    },
+    {
+      "name": "Lacquer Dialog",
+      "kind": "card",
+      "refersTo": "dialog",
+      "description": "자개 띠를 두른 옻칠 대화상자.",
+      "html": "<div class=\"ds-dialog\"><div class=\"ds-dialog-h\">족보·규칙</div><p>텍사스 홀덤은 손에 든 2장과 가운데 5장으로 가장 좋은 5장을 만듭니다.</p></div>",
+      "css": ".ds-dialog{position:relative;max-width:360px;border-radius:16px;background:var(--color-lacquer-2,#231a16);color:var(--color-ivory-dim,#d9cfbb);box-shadow:0 18px 40px rgb(0 0 0 / .55);font:500 15px/1.6 'Noto Sans KR',sans-serif}.ds-dialog::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:2px;background:linear-gradient(115deg,#a9e1d6,#e3c6ef 30%,#f6e7b0 55%,#b9d8f2 80%,#a9e1d6);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.75;pointer-events:none}.ds-dialog-h{padding:12px 20px;border-bottom:1px solid rgb(226 194 125 / .15);font:700 18px 'Gowun Batang',serif;color:var(--color-gold, #e2c27d)}.ds-dialog p{margin:0;padding:16px 20px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "명절 밤의 자개 교자상",
+    "overview": "명절에 식구들이 꺼내 펴는 검은 옻칠 교자상이 이 시스템의 전부입니다. 어두운 나무 바닥(floor) 위에 옻칠 상판(lacquer)이 놓이고, 붉은 칠 테두리(rim)와 그 안쪽의 가는 자개 띠(pearl inlay), 네 귀퉁이의 자개 마름모가 상을 두릅니다. 카드는 상아색 종이에 먹색과 붉은 칠 무늬로 찍히고, 뒷면은 붉은 칠 위에 금색 빗금입니다. 카지노의 초록 펠트, 네온, 금박 칩은 이 세계에 없습니다.\n\n화면은 휴대폰 가로(844×390)를 기준 좌표로 한 고정 무대(Stage)이며, 기기 크기에 맞춰 통째로 확대·축소됩니다. 밀도는 높지만 한 번에 읽을 것은 하나입니다. 내 차례에는 아래 띠 오른쪽의 한 문장(\"콜 400 하면 계속 · 남은 12초\")과 금색 타이머 막대, 큰 버튼 네 개만 보면 됩니다.\n\n움직임은 실제 상 위의 손놀림을 따릅니다. 카드는 덱에서 각 자리로 날아가며 뒤집히고, 베팅 칩은 자리 앞에서 판돈 쪽으로 미끄러져 사라지며, 홀덤의 번 카드(burn card)는 턴·리버 전에 덱 옆으로 엎어져 던져집니다(0.5초). 판이 끝나면 딴 칩이 가운데에서 이긴 사람 자리로 미끄러집니다. 움직임 줄이기(prefers-reduced-motion) 설정에서는 모든 애니메이션과 전환이 사실상 0으로 줄어듭니다.",
+    "keyCharacteristics": [
+      "옻칠 검정 상판 + 붉은 칠 테두리 + 무지개빛 자개 띠라는 세 겹 재료",
+      "금색은 \"다음 결정, 판돈, 주 버튼\"에만 쓰는 희소한 신호",
+      "제목은 고운바탕(Gowun Batang), 기능 글자는 본고딕(Noto Sans KR) + 고정폭 숫자(tabular-nums)",
+      "844×390 고정 무대를 통째로 스케일, 휴대폰 가로 우선",
+      "정중한 존댓말, 가상 칩(play money)만 다룸"
+    ],
+    "rules": [
+      {
+        "name": "The Gold Means Now Rule",
+        "body": "금색 면적은 \"지금 내가 할 일\"과 판돈, 주 버튼에만 갑니다. 차례인 다른 사람은 금색 테두리·타이머 고리·칩 숫자로만 표시하고, 장식으로 금색을 깔지 않습니다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pearl Is a Line Rule",
+        "body": "자개는 2px 테두리 띠(pearl-ring, 불투명도 0.75)로 씁니다. 큰 면을 자개로 채우지 않습니다. 예외는 아바타 원판과 상판 귀퉁이 마름모입니다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif Names, Sans Counts Rule",
+        "body": "바탕체는 이름(게임, 방, 대화상자, 판돈 라벨)에만, 숫자와 조작은 언제나 본고딕입니다.",
+        "section": "typography"
+      },
+      {
+        "name": "The 12px Floor Rule",
+        "body": "844×390 무대에서도 글자는 12px 아래로 내려가지 않습니다. 유일한 예외는 카드 그림 속 순위 글자와 JOKER 표기입니다.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Stage Rule",
+        "body": "테이블 화면의 좌표는 844×390 하나뿐입니다. 기기별로 다시 배치하지 않고 무대 전체를 스케일합니다.",
+        "section": "layout"
+      },
+      {
+        "name": "The 44px Thumb Rule",
+        "body": "누르는 것은 모두 44px 이상(결정 버튼 46px)입니다. 시각적으로 더 작은 상단 버튼은 보이지 않는 터치 영역으로 44px를 채웁니다.",
+        "section": "layout"
+      },
+      {
+        "name": "The Real Weight Rule",
+        "body": "그림자는 언제나 아래로 떨어지는 흐린 검정입니다. 색 있는 빛 번짐이나 딱딱한 오프셋 그림자를 쓰지 않습니다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** 새 화면도 floor 나뭇결 바닥 위에 옻칠 면(lacquer 계열)을 올리고, 큰 면은 rim 고리 + 자개 띠로 두르세요.",
+      "**Do** 금색은 다음 결정·판돈·주 버튼에만 쓰고, 화면당 주 버튼(붉은 칠 + 금색 테두리)은 하나만 두세요.",
+      "**Do** 이름은 Gowun Batang, 숫자와 조작은 Noto Sans KR 고정폭 숫자로 쓰세요.",
+      "**Do** 테이블 요소는 844×390 좌표에 놓고 무대 스케일에 맡기세요.",
+      "**Do** 누르는 것은 44px 이상, 글자는 12px 이상으로 두세요.",
+      "**Do** 움직임은 실제 손놀림(덱에서 분배, 칩 미끄러짐, 번 카드 던지기, 정산 이동)으로만 쓰고, 감속 곡선 cubic-bezier(0.16, 1, 0.3, 1)을 쓰세요. 움직임 줄이기 설정을 지키세요.",
+      "**Do** 문구는 정중한 존댓말로, 칩은 가상 칩임을 분명히 하세요."
+    ],
+    "donts": [
+      "**Don't** 초록 펠트, 네온, 금박 칩 같은 카지노 재료를 쓰지 마세요.",
+      "**Don't** 자개 그라데이션으로 큰 면을 채우지 마세요. 자개는 2px 띠, 아바타 원판, 귀퉁이 마름모뿐입니다.",
+      "**Don't** 금색을 장식용 면이나 일반 텍스트 강조로 퍼뜨리지 마세요.",
+      "**Don't** suit-red(카드 무늬)와 rim(칠 테두리·버튼)을 서로 바꿔 쓰지 마세요.",
+      "**Don't** 색 번짐 그림자나 딱딱한 오프셋 그림자를 쓰지 마세요.",
+      "**Don't** 글리프·이모지 아이콘이나 외부 아이콘 폰트를 쓰지 마세요."
+    ]
+  }
+}

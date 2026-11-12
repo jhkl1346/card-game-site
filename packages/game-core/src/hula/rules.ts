@@ -12,6 +12,8 @@ export interface HulaRules {
   aceHighInRun: boolean;
   /** 남이 등록한 멜드에도 붙일 수 있는지 */
   layOffToOthers: boolean;
+  /** 자기가 한 번이라도 등록한 뒤에만 붙이기를 할 수 있는지 (같은 턴에 등록한 직후부터 가능) */
+  layOffRequiresMeld: boolean;
   /** 7은 한 장만으로도 등록할 수 있는지 (한국식 규칙) */
   sevenAlone: boolean;
   /** 버린 더미에서 가져오는 조건: 'mustUse' = 그 턴에 바로 멜드에 쓸 때만, 'free' = 자유 */
@@ -34,6 +36,7 @@ export const DEFAULT_HULA_RULES: Readonly<HulaRules> = Object.freeze<HulaRules>(
   faceCardPoints: 'ten',
   aceHighInRun: true,
   layOffToOthers: true,
+  layOffRequiresMeld: true,
   sevenAlone: true,
   discardPickup: 'mustUse',
   stopEnabled: true,

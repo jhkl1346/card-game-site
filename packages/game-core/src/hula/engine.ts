@@ -139,6 +139,7 @@ function removeIndices(hand: HulaCard[], indices: readonly number[]): HulaCard[]
 }
 
 function canLayOffTo(s: HulaState, playerId: string, meld: HulaMeld): boolean {
+  if (s.rules.layOffRequiresMeld && !s.players.find((p) => p.id === playerId)?.hasMelded) return false;
   return s.rules.layOffToOthers || meld.owner === playerId;
 }
 
@@ -387,7 +388,9 @@ export function applyHulaAction(state: HulaState, playerId: string, action: Hula
     case 'layoff': {
       const meld = s.melds.find((m) => m.id === action.meldId);
       if (!meld) throw new GameRuleError('없는 멜드입니다');
-      if (!canLayOffTo(s, playerId, meld)) throw new GameRuleError('다른 사람의 멜드에는 붙일 수 없습니다');
+      if (!canLayOffTo(s, playerId, meld)) {
+        throw new GameRuleError(s.rules.layOffRequiresMeld && !p.hasMelded ? '먼저 내 카드를 등록해야 붙일 수 있습니다' : '다른 사람의 멜드에는 붙일 수 없습니다');
+      }
       const indices = resolve(p.hand, action.cards);
       if (!indices) throw new GameRuleError('손에 없는 카드입니다');
       const combined = [...meld.cards, ...indices.map((i) => p.hand[i]!)];

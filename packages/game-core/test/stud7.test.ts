@@ -4,6 +4,7 @@ import {
   applyStud7Action,
   cardIndex,
   cardToString,
+  chooseStud7OpenCard,
   createDeck,
   createStud7,
   getStud7LegalActions,
@@ -36,10 +37,13 @@ function stackDeck(hands: string[], later?: number[]): Card[] {
   return [...deck, ...createDeck().filter((c) => !used.has(cardIndex(c)))];
 }
 
+/** 예전 방식(3번째 카드가 처음부터 공개) 규칙. 베팅 규칙 테스트는 이 방식으로 한다 */
+const LEGACY = { chooseOpenCard: false } as const;
+
 const start = (n: number, options: Partial<Stud7Options> = {}, chips?: number[]) =>
   createStud7(
     players(n).map((p, i) => ({ ...p, chips: chips?.[i] ?? p.chips })),
-    { ante: 100, randomInt, ...options },
+    { ante: 100, randomInt, ...options, rules: { ...LEGACY, ...options.rules } },
   );
 
 const toActId = (s: Stud7State) => s.players[s.toAct]!.id;
@@ -351,7 +355,8 @@ describe('검증과 불변성', () => {
       const total = totalChips(s);
       while (s.phase !== 'finished') {
         const legal = getStud7LegalActions(s, toActId(s));
-        s = act(s, legal[randomInt(legal.length)]!.type);
+        // 공개 카드 고르기 단계도 함께 거친다 (cardIndex 포함한 합법 액션을 그대로 적용)
+        s = applyStud7Action(s, toActId(s), legal[randomInt(legal.length)]!);
         if (s.phase !== 'finished') expect(totalChips(s)).toBe(total);
       }
       expect(finalTotal(s)).toBe(total);
@@ -363,7 +368,7 @@ describe('검증과 불변성', () => {
 describe('비공개 정보 보호 (getState)', () => {
   it('남의 비공개 카드와 남은 덱은 시야에 들어가지 않는다', () => {
     const engine = new Stud7Engine();
-    engine.init(players(3), { ante: 100, randomInt });
+    engine.init(players(3), { ante: 100, randomInt, rules: LEGACY });
     const full = engine.snapshot;
     const view = engine.getState('p0');
 
@@ -391,7 +396,7 @@ describe('비공개 정보 보호 (getState)', () => {
 
   it('관전자는 공개 카드만 본다', () => {
     const engine = new Stud7Engine();
-    engine.init(players(2), { ante: 100, randomInt });
+    engine.init(players(2), { ante: 100, randomInt, rules: LEGACY });
     const view = engine.getState(null);
     expect(view.myId).toBeNull();
     expect(view.legalActions).toEqual([]);
@@ -400,7 +405,7 @@ describe('비공개 정보 보호 (getState)', () => {
 
   it('쇼다운 후에는 끝까지 간 사람의 카드만 공개된다', () => {
     const engine = new Stud7Engine();
-    engine.init(players(3), { ante: 100, randomInt });
+    engine.init(players(3), { ante: 100, randomInt, rules: LEGACY });
     const first = engine.snapshot.players[engine.snapshot.toAct]!.id;
     engine.applyAction(first, { type: 'die' });
     while (!engine.isFinished()) {
@@ -415,5 +420,46 @@ describe('비공개 정보 보호 (getState)', () => {
       expect(hidden).toBe(p.id === first ? 2 : 0);
     }
     expect(engine.getResult()?.reason).toBe('showdown');
+  });
+});
+
+describe('공개할 카드 고르기 (chooseOpenCard, 기본값)', () => {
+  // 각자 [첫째, 둘째, 셋째, 4~7번째] 순서. p0은 A 페어 + 2, p1은 K·7·3
+  const hands = ['As Ah 2c 5d 6d 7d 8d', 'Kc 7h 3s 9c 9h 9s Tc'];
+  const begin = () => createStud7(players(2), { ante: 100, stackedDeck: stackDeck(hands) });
+
+  it('첫 3장을 모두 뒷면으로 받고, 차례대로 1장씩 고른다', () => {
+    const s = begin();
+    expect(s.phase).toBe('choose');
+    expect(s.players.every((p) => p.cards.length === 3 && p.cards.every((c) => !c.open))).toBe(true);
+    expect(getStud7LegalActions(s, 'p0').map((a) => a.cardIndex)).toEqual([0, 1, 2]);
+    expect(() => applyStud7Action(s, 'p0', { type: 'bbing' })).toThrow('공개할 카드');
+    expect(() => applyStud7Action(s, 'p0', { type: 'open', cardIndex: 3 })).toThrow('3장');
+    expect(() => applyStud7Action(s, 'p1', { type: 'open', cardIndex: 0 })).toThrow('차례');
+  });
+
+  it('고른 카드는 모두 고를 때까지 다른 사람에게 보이지 않고, 다 고르면 한꺼번에 펼쳐진다', () => {
+    let s = applyStud7Action(begin(), 'p0', { type: 'open', cardIndex: 2 }); // 2♣ 공개 (A 페어 숨김)
+    const p1View = getStud7View(s, 'p1');
+    expect(p1View.players[0]!.openChosen).toBe(true);
+    expect(p1View.players[0]!.cards).toEqual([null, null, null]);
+
+    s = applyStud7Action(s, 'p1', { type: 'open', cardIndex: 0 }); // K♣ 공개
+    expect(s.phase).toBe('betting');
+    const view = getStud7View(s, 'p0');
+    expect(view.players[1]!.cards.map((c) => c && cardToString(c))).toEqual([null, null, 'Kc']);
+    expect(view.players[0]!.cards.map((c) => c && cardToString(c))).toEqual(['As', 'Ah', '2c']);
+    // 첫 베팅은 공개 카드가 가장 낮은 사람(2♣)부터
+    expect(s.players[s.toAct]!.id).toBe('p0');
+  });
+
+  it('시간이 지나면 3번째 카드를 공개한다', () => {
+    expect(stud7TimeoutAction(begin(), 'p0')).toEqual({ type: 'open', cardIndex: 2 });
+  });
+
+  it('봇은 페어를 숨기고 짝이 아닌 카드를 공개한다', () => {
+    const noMistake = () => 0.99;
+    expect(chooseStud7OpenCard(parseCards('As 2c Ah'), noMistake)).toBe(1);
+    expect(chooseStud7OpenCard(parseCards('Kd 9s 4h'), noMistake)).toBe(2); // 가장 낮은 카드
   });
 });

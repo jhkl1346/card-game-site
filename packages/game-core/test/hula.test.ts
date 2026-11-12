@@ -163,11 +163,29 @@ describe('턴 진행', () => {
       s = play(s, { type: 'discard', card: 'Qd' });
       return play(s, { type: 'drawDeck' }); // p0이 6♠을 가져옴
     };
-    const s = run();
+    // p0은 아직 등록하지 않았으므로 기본 규칙(layOffRequiresMeld)에서는 붙일 수 없다
+    expect(legal(run()).some((a) => a.type === 'layoff')).toBe(false);
+    expect(() => play(run(), { type: 'layoff', meldId: 1, cards: ['6s'] })).toThrow('먼저 내 카드를 등록');
+    const s = run({ layOffRequiresMeld: false });
     expect(legal(s)).toContainEqual({ type: 'layoff', meldId: 1, cards: ['6s'] });
     const after = play(s, { type: 'layoff', meldId: 1, cards: ['6s'] });
     expect(after.melds[0]!.cards.map(hulaCardId)).toEqual(['3s', '4s', '5s', '6s']);
-    expect(legal(run({ layOffToOthers: false })).some((a) => a.type === 'layoff')).toBe(false);
+    expect(legal(run({ layOffToOthers: false, layOffRequiresMeld: false })).some((a) => a.type === 'layoff')).toBe(false);
+  });
+
+  it('등록한 바로 그 턴부터 붙일 수 있다 (내 멜드·남의 멜드 모두)', () => {
+    const P0 = 'Ac 2d 3h 8c 8d 8h 6s';
+    const P1 = '3s 4s 5s 9h 9d 9c Kh';
+    let s = start(2, { stackedDeck: stack([P0, P1], 'Jh', 'Qd 9s') });
+    s = play(s, { type: 'drawDeck' }); // p1: Qd
+    s = play(s, { type: 'meld', cards: ['3s', '4s', '5s'] });
+    s = play(s, { type: 'discard', card: 'Qd' });
+    s = play(s, { type: 'drawDeck' }); // p0: 9s
+    expect(legal(s).some((a) => a.type === 'layoff')).toBe(false); // 등록 전
+    s = play(s, { type: 'meld', cards: ['8c', '8d', '8h'] });
+    expect(legal(s)).toContainEqual({ type: 'layoff', meldId: 1, cards: ['6s'] }); // 남의 멜드
+    s = play(s, { type: 'layoff', meldId: 1, cards: ['6s'] });
+    expect(s.melds[0]!.cards.map(hulaCardId)).toEqual(['3s', '4s', '5s', '6s']);
   });
 
   it('잘못된 등록·붙이기·차례 위반은 거절하고 상태를 바꾸지 않는다', () => {

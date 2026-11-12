@@ -5,7 +5,13 @@
 
 | 에셋 | 종류 | 출처 | 라이선스 | 비고 |
 |---|---|---|---|---|
-| (아직 없음) | | | | 카드·칩·아이콘은 7단계에서 SVG/CSS로 직접 제작 예정 |
+| 카드 앞면·뒷면, 조커 | SVG/CSS | 직접 제작 (`apps/web/src/components/PlayingCard.tsx`) | MIT (이 저장소) | 뒷면은 옻칠 바탕에 자개 무늬를 CSS 그라디언트로 그림 |
+| 무늬 4종 (스페이드·하트·다이아·클로버) | SVG | 직접 제작 (`PlayingCard.tsx`의 `SuitIcon`) | MIT (이 저장소) | |
+| 아이콘 (규칙, 나가기, 닫기, 사람, 봇, 자물쇠, 왕관 등), 칩 표시 | SVG | 직접 제작 (`apps/web/src/components/Icon.tsx`) | MIT (이 저장소) | |
+| 파비콘 | SVG | 직접 제작 (`apps/web/public/favicon.svg`) | MIT (이 저장소) | |
+| 교자상 테이블, 자개 테두리 | CSS | 직접 제작 (`apps/web/src/index.css`, `apps/web/src/table/common.tsx`) | MIT (이 저장소) | 이미지 파일 없음 |
+| Noto Sans KR (본문) | 웹폰트 | Google Fonts / npm `@fontsource/noto-sans-kr` | SIL OFL 1.1 | 빌드에 포함해 직접 제공 (외부 요청 없음) |
+| Gowun Batang (제목) | 웹폰트 | Google Fonts / npm `@fontsource/gowun-batang` | SIL OFL 1.1 | 빌드에 포함해 직접 제공 |
 
 ## 허용 라이선스
 - 직접 제작 (이 저장소의 MIT 라이선스)

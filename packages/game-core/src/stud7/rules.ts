@@ -1,6 +1,6 @@
 import type { Suit } from '../cards/card.js';
 
-export type Stud7ActionType = 'bbing' | 'check' | 'call' | 'ddadang' | 'quarter' | 'half' | 'full' | 'die';
+export type Stud7ActionType = 'bbing' | 'check' | 'call' | 'ddadang' | 'quarter' | 'half' | 'full' | 'die' | 'open';
 
 export const STUD7_ACTION_LABELS: Readonly<Record<Stud7ActionType, string>> = {
   bbing: '삥',
@@ -11,6 +11,7 @@ export const STUD7_ACTION_LABELS: Readonly<Record<Stud7ActionType, string>> = {
   half: '하프',
   full: '풀',
   die: '다이',
+  open: '공개할 카드 고르기',
 };
 
 /** 레이즈로 세는 액션 (삥은 첫 베팅이라 세지 않음) */
@@ -36,6 +37,12 @@ export interface Stud7Rules {
   firstRoundActions: readonly Stud7ActionType[];
   /** 쿼터·하프·풀 계산 기준 판돈: 콜한 뒤(afterCall) / 콜하기 전(beforeCall) */
   potBetBase: 'afterCall' | 'beforeCall';
+  /**
+   * true: 첫 3장을 모두 뒷면으로 받고, 각자 그중 1장을 골라 공개한다 (한국식 7포커).
+   * 고른 카드는 모두가 고를 때까지 다른 사람에게 보이지 않고, 다 고르면 한꺼번에 펼쳐진다.
+   * false: 3번째 카드가 처음부터 공개로 나온다.
+   */
+  chooseOpenCard: boolean;
 }
 
 export const DEFAULT_STUD7_RULES: Readonly<Stud7Rules> = Object.freeze<Stud7Rules>({
@@ -47,6 +54,7 @@ export const DEFAULT_STUD7_RULES: Readonly<Stud7Rules> = Object.freeze<Stud7Rule
   maxBetAction: 'full',
   firstRoundActions: ['bbing', 'check', 'call', 'ddadang', 'quarter', 'half', 'full', 'die'],
   potBetBase: 'afterCall',
+  chooseOpenCard: true,
 });
 
 /** 무늬 강도 (클수록 높음) */

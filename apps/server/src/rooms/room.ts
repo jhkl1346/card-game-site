@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { botProfile, botThinkDelayMs, GameRuleError, type BotRandom, type PlayerInit, type RandomInt } from '@card-game/game-core';
+import { botProfile, botQuickDelayMs, botThinkDelayMs, GameRuleError, type BotRandom, type PlayerInit, type RandomInt } from '@card-game/game-core';
 import { ZodError } from 'zod';
 import type { ServerLimits } from '../config/limits.js';
 import type { HandParticipant, WalletPort } from '../wallet/service.js';
@@ -333,8 +333,10 @@ export class GameRoom {
     });
   }
 
-  private async standUp(seat: Seat): Promise<number> {
+  /** 자리에서 일어나 칩을 지갑으로 돌려준다. asSpectator면 방에 남아 관전한다 (변경 알림 전에 관전자로 넣어야 방 연결이 끊기지 않는다) */
+  private async standUp(seat: Seat, asSpectator = false): Promise<number> {
     this.seats[seat.index] = null;
+    if (asSpectator) this.spectators.set(seat.id, { name: seat.name, connected: seat.connected, disconnectedAt: seat.disconnectedAt });
     this.clearGrace(seat.id);
     this.passHostIfNeeded(seat.id);
     let returned = 0;
@@ -522,7 +524,8 @@ export class GameRoom {
     if (seat?.leaving) {
       this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'timeout')), 0);
     } else if (automatic) {
-      this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'bot')), botThinkDelayMs(this.deps.botRandom));
+      const delay = this.adapter.quickTurn?.(this.state) ? botQuickDelayMs(this.deps.botRandom) : botThinkDelayMs(this.deps.botRandom);
+      this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'bot')), delay);
     } else {
       this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'timeout')), Math.max(0, deadline! - now));
     }
@@ -594,8 +597,7 @@ export class GameRoom {
       if (seat.leaving || absent) {
         await this.standUp(seat);
       } else if (seat.stack <= 0) {
-        await this.standUp(seat);
-        this.spectators.set(seat.id, { name: seat.name, connected: seat.connected, disconnectedAt: seat.disconnectedAt });
+        await this.standUp(seat, true);
         this.deps.onNotice(this, seat.id, '칩을 모두 잃어 자리에서 일어났습니다. 관전 중입니다.');
       }
     }

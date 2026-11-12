@@ -7,7 +7,7 @@
 - 아이디/비밀번호 로그인, 칩·전적·닉네임 영구 저장
 - 칩은 **가상 재화**이며 실제 돈과 연결되지 않습니다.
 
-> 진행 상황: 6단계(게임 서버: 방·Socket.IO·칩 정산)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
+> 진행 상황: 7단계(화면: 로그인·로비·방 설정·3개 게임 테이블·족보표)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
 
 ## 문서
 - [`PROMPT.md`](PROMPT.md): 전체 요구사항
@@ -34,15 +34,27 @@ packages/game-core    서버·클라이언트 공유 게임 로직 (카드, 셔�
 pnpm install
 ```
 
-```bash
-pnpm dev:web
-```
-→ http://localhost:5173
+서버와 화면을 각각 다른 터미널에서 켭니다.
 
 ```bash
 pnpm dev:server
 ```
 → http://localhost:3001/health
+
+```bash
+pnpm dev:web
+```
+→ http://localhost:5173 (회원가입 후 로비에서 `혼자 하기`로 봇과 바로 칠 수 있습니다)
+
+- 개발 서버(Vite)가 `/api`, `/health`, `/socket.io` 요청을 3001번 포트로 넘겨 주므로 프론트엔드 환경 변수는 필요 없습니다.
+- 프론트와 서버를 다른 도메인에 배포할 때만 `apps/web/.env`에 `VITE_SERVER_URL`(서버 주소)을 적습니다.
+- 화면은 휴대폰 가로 화면을 우선으로 만들었습니다. 게임 테이블은 844×390 크기로 그린 뒤 창 크기에 맞춰 확대·축소합니다.
+
+### 화면 (apps/web)
+- React 19 + Vite, Tailwind CSS v4(색·글꼴 토큰은 `src/index.css`의 `@theme`), Framer Motion(카드 분배·칩 이동·번 카드 애니메이션, 동작 줄이기 설정을 따름)
+- `src/screens`: 로그인·회원가입, 로비, 게임 화면 / `src/table`: 게임별 테이블 / `src/components`: 카드·아이콘·대화상자·방 설정·족보표
+- 화면은 서버가 보낸 스냅샷만 그리며, 버튼은 서버가 허용한 액션(`legalActions`)만 보여 줍니다.
+- 디자인 방향(옻칠 교자상 + 자개)의 시안은 [`docs/design/a-jagae-chosen.html`](docs/design/a-jagae-chosen.html), 예비 시안은 [`docs/design/d-mobile-poker-backup.html`](docs/design/d-mobile-poker-backup.html)에 있습니다.
 
 환경 변수는 `.env.example`을 복사해 `.env`로 만든 뒤 채웁니다. `.env`는 커밋하지 않습니다.
 

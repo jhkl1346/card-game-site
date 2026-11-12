@@ -80,9 +80,10 @@ interface GameEngine<State, Action, View, Options, Result> {
 | `users` | id(uuid PK), username(UNIQUE), password_hash, nickname(UNIQUE, 대소문자 무시), email(NULL 허용), created_at, last_login_at, deleted_at(NULL 허용) | 탈퇴 시 username·nickname 익명화, 해시 삭제 |
 | `sessions` | id(PK), user_id(FK), token_hash(UNIQUE), expires_at, persistent(bool), user_agent, created_at, last_seen_at | 토큰은 SHA-256 해시만 저장 |
 | `wallets` | user_id(PK, FK), balance(bigint, CHECK ≥0), updated_at | |
+| `table_stakes` | user_id(PK, FK), room_id, amount(CHECK ≥0) | 테이블에 올라가 있는 칩 (6단계 추가) |
 | `game_results` | game_id(PK), game_type, participants(JSONB: id·이름·봇 여부·칩 증감), ended_at | 중복 정산 방지 키 |
 | `game_result_players` | (game_id, user_id) PK, chip_delta, rank | 전적·랭킹 조회용 (사람만) |
-| `chip_logs` | id, user_id, delta, reason(`signup`/`game`/`relief`/`buyin`/`refund`), game_id(NULL 허용), created_at | |
+| `chip_logs` | id, user_id, delta, reason(`signup`/`game`/`relief`/`buyin`/`cashout`/`refund`), game_id(NULL 허용), created_at | |
 | `login_attempts` | key(`u:아이디` 또는 `ip:주소`), fail_count, locked_until, updated_at | 5회 실패 시 15분 잠금 |
 
 - `chat_logs`는 무료 DB 용량을 아끼기 위해 기본으로 만들지 않습니다.
@@ -94,13 +95,17 @@ interface GameEngine<State, Action, View, Options, Result> {
   - 서버가 시작할 때 마이그레이션을 자동으로 적용합니다. 스키마를 바꾸면 `pnpm --filter @card-game/server db:generate`로 새 마이그레이션 SQL을 만들어 함께 커밋합니다.
 - 칩·전적 컬럼은 `bigint`(JS number로 읽음)입니다. 가상 칩이라 2^53 안에서 충분합니다.
 
-### 2.3 칩 흐름
+### 2.3 칩 흐름 (6단계 확정, `apps/server/src/wallet/service.ts`)
 
-1. 방 입장 시 바이인만큼 `wallets.balance`에서 차감합니다(트랜잭션 1회, `chip_logs.reason = buyin`).
-2. 판 중에는 테이블 칩을 메모리에서만 증감합니다.
-3. 퇴장·접속 끊김·정상 종료는 모두 같은 정산 함수를 탑니다. `game_results`에 `game_id`를 넣으면서 남은 테이블 칩을 지갑에 되돌리는 작업을 **한 트랜잭션**으로 처리하고, `game_id` 유니크 제약으로 중복 정산을 막습니다.
-4. 서버가 재시작되면 메모리의 판은 사라집니다. 그래서 바이인 시점의 기록으로 "판 시작 전 잔액"을 복구(환불)합니다. 시작할 때 아직 정산되지 않은 바이인을 찾아 `refund`로 돌려줍니다.
-5. 구제 칩: 트랜잭션 안에서 `balance = 0`이고 앉아 있는 테이블의 칩이 0인지 확인한 뒤 `ReliefChipConfig.amount`를 지급합니다. 조건부 UPDATE(`WHERE balance = 0`)로 동시 요청 중 하나만 성공하게 합니다.
+`table_stakes`(user_id PK, room_id, amount) 테이블이 "지갑에서 빠져 테이블에 올라가 있는 칩"을 기록합니다. 한 사람은 한 방에만 앉을 수 있습니다.
+
+1. **바이인**(자리에 앉을 때): 한 트랜잭션으로 `wallets.balance`를 차감하고 `table_stakes`를 만들고 `chip_logs(buyin)`을 남깁니다. 잔액이 바이인보다 적으면 가진 만큼(최소 판돈 × 20) 앉습니다.
+2. **판 진행 중**: 칩 증감은 서버 메모리(엔진 상태)에서만 일어납니다.
+3. **판 종료**: 한 트랜잭션으로 `game_results`(game_id PK), `game_result_players`, `chip_logs(game)`을 넣고 `table_stakes.amount`를 판이 끝난 뒤 테이블 칩으로 바꿉니다. `game_id`가 이미 있으면(`ON CONFLICT DO NOTHING`) 아무것도 하지 않으므로 중복 정산되지 않습니다. 지갑 잔액은 이때 바뀌지 않습니다.
+4. **일어날 때**(나가기, 강퇴, 칩 소진, 오래 접속하지 않음): 한 트랜잭션으로 `table_stakes`를 지우면서 그 칩을 지갑에 더하고 `chip_logs(cashout)`을 남깁니다. 판 도중 나가면 그 판은 자동 액션(체크/다이, 훌라는 자동 버리기)으로 마친 뒤 일어납니다.
+5. **서버 재시작**: 시작할 때 남아 있는 `table_stakes`를 모두 지갑에 환불합니다(`chip_logs(refund)`). 이 값은 마지막으로 끝난 판 기준이므로 곧 "진행 중이던 판이 시작되기 전 칩"입니다. 정상 종료(SIGTERM) 때도 방을 모두 닫으며 같은 방식으로 돌려줍니다.
+6. **구제 칩**(`POST /api/wallet/relief`): 방 관리자가 아는 지금 테이블 칩이 0이고, 트랜잭션 안에서 `table_stakes`에 칩이 없고, 조건부 UPDATE(`WHERE balance = 0`)가 성공할 때만 `ReliefChipConfig.amount`(5,000)를 지급합니다. 동시에 여러 번 요청해도 하나만 성공하고, 횟수 제한은 없습니다.
+7. 봇의 칩은 지갑과 무관한 가상 칩입니다. 봇이 칩을 다 잃으면 판 사이에 바이인만큼 다시 채웁니다.
 
 ## 3. 인증 흐름
 
@@ -135,31 +140,34 @@ interface GameEngine<State, Action, View, Options, Result> {
 - **도메인 분리 시 쿠키 정책**: 프론트와 백엔드가 서로 다른 무료 도메인이면 쿠키가 제3자(cross-site) 쿠키가 되어 `SameSite=None; Secure`가 필요하고, Safari 등 일부 브라우저에서는 막힐 수 있습니다. 그래서 **백엔드가 빌드된 프론트 정적 파일도 함께 제공하는 단일 도메인 구성**을 1순위로 검토합니다. 이 경우 `SameSite=Lax`를 쓸 수 있고 CORS도 필요 없습니다. 분리 배포가 불가피하면 `SameSite=None` + CORS 허용 출처 고정(`credentials: true`)으로 갑니다. 최종 결정은 9단계 배포 조사에서 합니다(결정 보류).
 - 입력 검증은 서버에서 스키마 검증(zod, MIT)으로 하고, SQL은 ORM의 파라미터 바인딩만 씁니다. React의 기본 이스케이프를 그대로 쓰고 `dangerouslySetInnerHTML`은 쓰지 않습니다.
 
-## 4. 소켓 이벤트 명세 (Socket.IO)
+## 4. 소켓 이벤트 명세 (Socket.IO, 6단계 확정)
 
-모든 이벤트는 인증된 소켓에서만 받습니다. 클라이언트 → 서버 이벤트는 ack 콜백으로 `{ ok: true, ... } | { ok: false, error: '한국어 메시지' }`를 돌려받습니다.
+`apps/server/src/socket/index.ts`. 연결할 때 세션 쿠키로 인증하고(없으면 연결 거부), 클라이언트 → 서버 요청은 ack 콜백으로 `{ ok: true, ... } | { ok: false, error: '한국어 메시지' }`를 돌려받습니다.
 
 | 방향 | 이벤트 | 내용 |
 |---|---|---|
-| C→S | `lobby:subscribe` / `lobby:unsubscribe` | 방 목록 구독 |
-| S→C | `lobby:rooms` | 공개 방 목록 스냅샷 |
-| C→S | `room:create` | `{ gameType, maxPlayers, botCount, buyIn, blinds/ante, isPrivate, turnSeconds }` |
-| C→S | `room:join` | `{ roomId }` 또는 `{ code }` (비공개 방) |
-| C→S | `room:quickJoin` | `{ gameType }` 빈자리가 있는 방에 자동 입장 |
-| C→S | `room:spectate` / `room:leave` | 관전 / 퇴장 (퇴장 시 정산) |
-| C→S | `room:kick` / `room:transferHost` | 방장 전용 |
-| C→S | `room:start` | 방장이 게임 시작 (싱글은 방 생성 직후 자동) |
-| S→C | `room:snapshot` | 방 전체 스냅샷 + 내 시야의 게임 상태 (재접속·지연 복구용) |
-| S→C | `game:event` | 증분 이벤트 (분배, 오픈, 베팅, 번 카드 **개수**, 쇼다운, 결과) + `seq` 번호 |
-| C→S | `game:action` | `{ seq, action }` 차례·합법 액션 검증, 틀리면 무시하고 거절 |
-| S→C | `game:turn` | 현재 차례, 남은 시간(서버 기준 마감 시각), 내 합법 액션 |
-| C→S | `chat:send` | 길이·빈도 제한(`ServerLimits`) |
-| S→C | `chat:message` | 방 채팅 (DB 저장 안 함) |
-| S→C | `session:replaced` | 다른 곳에서 로그인되어 접속 종료 안내 |
-| S→C | `server:notice` | 방 생성 한도 도달, 서버 재시작 환불 안내 등 |
+| C→S | `lobby:subscribe` / `lobby:unsubscribe` | 공개 방 목록 구독 (응답에 현재 목록) |
+| S→C | `lobby:rooms` | 공개 방 목록 (바뀔 때, 0.3초 묶음) |
+| C→S | `room:create` | `{ gameType, maxPlayers?, botCount?, buyIn?, stake?, isPrivate?, turnSeconds? }` 빠진 값은 게임별 기본값 |
+| C→S | `room:single` | `{ gameType, settings? }` 혼자 하기: 비공개 방에 봇만 채워 바로 시작 |
+| C→S | `room:join` | `{ roomId }` 또는 `{ code }`(비공개 방), `spectate: true`면 관전 |
+| C→S | `room:quickJoin` | `{ gameType }` 빈자리가 있는 공개 방, 없으면 봇과 새 방 |
+| C→S | `room:sit` | 관전 중 빈자리에 앉기 (바이인) |
+| C→S | `room:leave` | 나가기. 판 도중이면 `pending: true`, 판이 끝날 때 칩 반환 |
+| C→S | `room:start` / `room:kick` / `room:transferHost` | 방장 전용 |
+| C→S | `room:resync` | 스냅샷 다시 받기 |
+| S→C | `room:snapshot` | 방 정보 + **받는 사람의 시야로 만든** 게임 상태 + 차례·마감 시각(`serverNow` 기준) + `seq`. 상태가 바뀔 때마다 사람마다 따로 보냄 |
+| C→S | `game:action` | `{ action }` 차례·형식·규칙 검증, 틀리면 거절 |
+| C→S | `chat:send` | `{ text }` 길이·빈도 제한 |
+| S→C | `chat:message` | `{ userId, nickname, text, at }` (DB 저장 안 함) |
+| S→C | `session:replaced` | 같은 계정의 다른 접속·로그인·로그아웃으로 접속 종료 |
+| S→C | `server:notice` | 강퇴, 칩 소진으로 자리에서 일어남 등 안내 |
 
-- 클라이언트가 `seq`가 비는 것을 감지하면 `room:resync`를 보내 `room:snapshot`을 다시 받습니다.
-- 소켓 단위 요청 빈도 제한을 두고, 차례가 아닌 사람의 액션은 무시합니다.
+- 증분 이벤트(`game:event`) 대신 바뀔 때마다 전체 스냅샷을 보냅니다. 스냅샷은 엔진의 시야 함수(`getState`)만 거치므로 비공개 카드가 섞일 수 없고, 재접속·지연 복구도 같은 경로로 됩니다. 카드 분배 같은 애니메이션은 7단계에서 이전 스냅샷과 비교해 그립니다.
+- 소켓마다 요청 빈도 제한(초당 10회, 순간 20회)을 둡니다.
+- **재접속**: 끊기면 30초 동안 자리를 지키고(차례가 오면 제한 시간대로 자동 액션), 그 뒤에는 봇이 대신 플레이합니다. 판 사이에 끊겨 있으면 바로 일어나 칩을 돌려받습니다. 같은 계정으로 다시 접속하면 방으로 자동 복귀합니다. 3분 넘게 돌아오지 않으면 판이 끝날 때 일어납니다.
+- **중복 접속**: 같은 계정이 새로 연결하거나 HTTP로 새로 로그인하면 기존 소켓에 `session:replaced`를 보내고 끊습니다. 자리는 그대로 새 접속이 이어받습니다.
+- 턴 타이머가 끝나면 엔진의 시간 초과 액션(체크 또는 폴드/다이, 훌라는 자동 버리기)을 적용합니다.
 
 ## 5. 설정 객체
 
@@ -169,8 +177,10 @@ interface GameEngine<State, Action, View, Options, Result> {
 | `HoldemRules` | game-core | burnBeforeFlop/Turn/River (기본 모두 true), 홀수 칩 처리 |
 | `HulaRules` | game-core | 조커, 카드 점수, 스톱, 정산 (4단계 전에 가정 문서로 확인) |
 | `BotConfig` | game-core | 실수 확률(10~15%), 블러프 빈도, 공격성, 딜레이 0.8~2.5초 |
-| `ServerLimits` | server | 최대 동시 방 수, 방당 관전자 수, 채팅 길이·빈도 |
-| `ReliefChipConfig` | server | amount 5,000, requiredBalance 0 |
+| `ServerLimits` | server (`config/limits.ts`) | 최대 방 50, 방당 관전자 10, 채팅 200자·1초 간격, 소켓 요청 초당 10, 재접속 유예 30초, 부재 3분, 다음 판 대기 5초, 턴 10~60초(기본 20) |
+| `ReliefChipConfig` | server (`config/auth.ts`) | amount 5,000, requiredBalance 0 |
+| `AuthConfig` | server (`config/auth.ts`) | 세션 30일·12시간, 로그인 5회 실패 15분 잠금, 가입 칩 10,000, argon2id 비용 |
+| 방 기본값 | server (`rooms/settings.ts`) | 7포커 5인·봇 3·앤티 50, 홀덤 6인·봇 4·BB 100, 훌라 4인·봇 2·점당 10, 바이인 5,000(최소 판돈×20) |
 
 ## 6. 브랜치 / CI 구성
 

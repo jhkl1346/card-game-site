@@ -32,10 +32,48 @@ declare module 'fastify' {
   }
 }
 
+export interface AuthHooks {
+  /** 이 사용자의 세션이 끊김(다른 곳 로그인, 로그아웃, 비밀번호 변경, 탈퇴): 연결된 소켓을 정리한다 */
+  sessionsRevoked?(userId: string, keepSessionId?: string): void;
+  /** 탈퇴 전 확인 (방에 앉아 있으면 막는 등). 막을 때는 사용자에게 보여 줄 메시지로 예외를 던진다 */
+  beforeDeleteAccount?(userId: string): void;
+}
+
 export interface AuthRouteOptions {
   ctx: AuthContext;
   /** 배포(HTTPS)에서는 true. 로컬 http 개발에서는 false */
   secureCookies: boolean;
+  hooks?: AuthHooks;
+}
+
+/**
+ * 쿠키로 로그인 사용자를 확인하는 preHandler를 만든다. 만료가 연장되면 쿠키도 새 만료로 다시 보낸다.
+ * 다른 라우트(지갑 등)에서도 같은 방식으로 쓴다.
+ */
+export function makeRequireAuth(ctx: AuthContext, secureCookies: boolean) {
+  const { cookieName } = ctx.config;
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const token = request.cookies[cookieName];
+    const session = token ? await findSession(ctx.db, token, ctx.now(), ctx.config) : null;
+    if (!session) {
+      if (token) reply.clearCookie(cookieName, { path: '/', httpOnly: true, secure: secureCookies, sameSite: 'lax' });
+      throw new AuthError(401, '로그인이 필요합니다.');
+    }
+    if (session.refreshed && session.persistent) reply.setCookie(cookieName, token!, sessionCookieOptions(session, secureCookies));
+    request.auth = session;
+  };
+}
+
+function sessionCookieOptions(session: { persistent: boolean; expiresAt: Date }, secure: boolean): CookieSerializeOptions {
+  return {
+    httpOnly: true,
+    secure,
+    // 프론트와 API를 같은 도메인에서 제공하는 구성을 기본으로 한다 (docs/ARCHITECTURE.md 3장)
+    sameSite: 'lax',
+    path: '/',
+    // 로그인 상태 유지를 끄면 만료를 넣지 않아 브라우저를 닫을 때 쿠키가 사라진다
+    ...(session.persistent ? { expires: session.expiresAt } : {}),
+  };
 }
 
 /** zod 오류를 첫 번째 메시지와 필드 이름으로 바꿔 400으로 돌려준다 */
@@ -48,36 +86,16 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   return result.data;
 }
 
-export async function authRoutes(app: FastifyInstance, { ctx, secureCookies }: AuthRouteOptions): Promise<void> {
+export async function authRoutes(app: FastifyInstance, { ctx, secureCookies, hooks = {} }: AuthRouteOptions): Promise<void> {
   const { cookieName } = ctx.config;
 
-  const cookieOptions = (session: { persistent: boolean; expiresAt: Date }): CookieSerializeOptions => ({
-    httpOnly: true,
-    secure: secureCookies,
-    // 프론트와 API를 같은 도메인에서 제공하는 구성을 기본으로 한다 (docs/ARCHITECTURE.md 3장)
-    sameSite: 'lax',
-    path: '/',
-    // 로그인 상태 유지를 끄면 만료를 넣지 않아 브라우저를 닫을 때 쿠키가 사라진다
-    ...(session.persistent ? { expires: session.expiresAt } : {}),
-  });
-
   const setSessionCookie = (reply: FastifyReply, token: string, session: { persistent: boolean; expiresAt: Date }) =>
-    reply.setCookie(cookieName, token, cookieOptions(session));
+    reply.setCookie(cookieName, token, sessionCookieOptions(session, secureCookies));
 
   const clearSessionCookie = (reply: FastifyReply) =>
     reply.clearCookie(cookieName, { path: '/', httpOnly: true, secure: secureCookies, sameSite: 'lax' });
 
-  /** 쿠키로 로그인 사용자를 확인한다. 만료가 연장되면 쿠키도 새 만료로 다시 보낸다 */
-  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
-    const token = request.cookies[cookieName];
-    const session = token ? await findSession(ctx.db, token, ctx.now(), ctx.config) : null;
-    if (!session) {
-      if (token) clearSessionCookie(reply);
-      throw new AuthError(401, '로그인이 필요합니다.');
-    }
-    if (session.refreshed && session.persistent) setSessionCookie(reply, token!, session);
-    request.auth = session;
-  };
+  const requireAuth = makeRequireAuth(ctx, secureCookies);
 
   const startSession = (reply: FastifyReply, session: CreatedSession) => setSessionCookie(reply, session.token, session);
 
@@ -124,13 +142,19 @@ export async function authRoutes(app: FastifyInstance, { ctx, secureCookies }: A
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
+    // 다른 곳에 연결된 소켓은 "다른 곳에서 로그인" 안내 후 끊는다
+    hooks.sessionsRevoked?.(userId);
     startSession(reply, session);
     return { user: await getPublicUser(ctx, userId) };
   });
 
   app.post('/api/auth/logout', async (request, reply) => {
     const token = request.cookies[cookieName];
-    if (token) await deleteSessionByToken(ctx.db, token);
+    if (token) {
+      const session = await findSession(ctx.db, token, ctx.now(), ctx.config);
+      await deleteSessionByToken(ctx.db, token);
+      if (session) hooks.sessionsRevoked?.(session.userId);
+    }
     clearSessionCookie(reply);
     return { ok: true };
   });
@@ -153,12 +177,19 @@ export async function authRoutes(app: FastifyInstance, { ctx, secureCookies }: A
   app.post('/api/account/password', { preHandler: requireAuth }, async (request) => {
     const input = parse(changePasswordSchema, request.body);
     await changePassword(ctx, request.auth!.userId, request.auth!.sessionId, input);
+    hooks.sessionsRevoked?.(request.auth!.userId, request.auth!.sessionId);
     return { ok: true };
   });
 
   app.post('/api/account/delete', { preHandler: requireAuth }, async (request, reply) => {
     const { password } = parse(deleteAccountSchema, request.body);
+    try {
+      hooks.beforeDeleteAccount?.(request.auth!.userId);
+    } catch (error) {
+      throw new AuthError(409, error instanceof Error ? error.message : '지금은 탈퇴할 수 없습니다.');
+    }
     await deleteAccount(ctx, request.auth!.userId, password);
+    hooks.sessionsRevoked?.(request.auth!.userId);
     clearSessionCookie(reply);
     return { ok: true };
   });

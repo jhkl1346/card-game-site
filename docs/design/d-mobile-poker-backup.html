@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--bg:#141a24;--bg2:#1c2431;--felt:#24485a;--felt2:#1a3746;--line:#3b6578;--txt:#eef2f6;--sub:#b4c3d1;--acc:#45c4a0;--warn:#ff8a5c;--red:#e5484d}
+body{width:844px;height:390px;overflow:hidden;position:relative;font-family:'Noto Sans KR',sans-serif;color:var(--txt);background:var(--bg)}
+.top{position:absolute;inset:0 0 auto;height:36px;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:12px;color:var(--sub)}
+.ic{width:28px;height:28px;border-radius:8px;background:var(--bg2);display:grid;place-items:center;color:var(--txt);font-weight:900}
+.top b{color:var(--txt);font-size:13px}
+.top .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.bal{background:var(--bg2);border-radius:14px;padding:4px 10px 4px 6px;display:flex;gap:6px;align-items:center;color:var(--txt);font-weight:700;font-variant-numeric:tabular-nums}
+.bal i{width:16px;height:16px;border-radius:50%;background:var(--acc)}
+/* 테이블 */
+.table{position:absolute;left:150px;top:46px;width:544px;height:230px;border-radius:115px;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt2));box-shadow:0 0 0 6px #10161e,0 0 0 8px var(--line)}
+.table::after{content:"";position:absolute;inset:16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.08)}
+/* 아바타 자리 */
+.p{position:absolute;width:92px;text-align:center}
+.ring{position:relative;width:52px;height:52px;margin:0 auto;border-radius:50%;padding:3px;background:#2a3444}
+.ring .f{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:18px;color:#fff}
+.p.turn .ring{background:conic-gradient(var(--acc) 0 64%,#2a3444 64%)}
+.plate{margin-top:-6px;position:relative;background:#0e131b;border-radius:8px;padding:3px 6px;font-size:11px;line-height:1.35}
+.plate b{display:block;font-size:12px}.plate span{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums}
+.p.fold{opacity:.45}.p.fold .plate span{color:var(--sub)}
+.act{position:absolute;left:50%;top:-12px;transform:translateX(-50%);font-size:10px;font-weight:900;padding:1px 7px;border-radius:8px;white-space:nowrap}
+.bet{position:absolute;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:rgba(0,0,0,.35);padding:2px 8px 2px 3px;border-radius:10px;font-variant-numeric:tabular-nums}
+.bet i{width:14px;height:14px;border-radius:50%;background:var(--acc);box-shadow:0 2px 0 #2b8f72}
+.btn-d{position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;color:#111;font-size:10px;font-weight:900;display:grid;place-items:center}
+.mini{position:absolute;display:flex}.mini i{width:20px;height:28px;border-radius:3px;background:#3d4f7a;border:1.5px solid #dfe6ee;margin-left:-8px;transform:rotate(-8deg)}.mini i+i{transform:rotate(8deg)}
+/* 판 */
+.pot{position:absolute;left:372px;top:84px;width:100px;text-align:center;font-size:11px;color:var(--sub)}
+.pot div{font-size:20px;font-weight:900;color:var(--txt);font-variant-numeric:tabular-nums}
+.board{position:absolute;left:300px;top:130px;display:flex;gap:5px}
+.c{position:relative;width:46px;height:64px;border-radius:6px;background:#fff;color:#1a1d23;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.c b{position:absolute;left:5px;top:3px;font:900 17px/1 'Noto Sans KR'}.c i{position:absolute;left:6px;top:22px;font-style:normal;font-size:12px}
+.c u{position:absolute;right:5px;bottom:3px;text-decoration:none;font-size:24px}.c.r{color:var(--red)}
+.c.e{background:transparent;border:1.5px dashed rgba(255,255,255,.18);box-shadow:none}
+.hint{position:absolute;left:300px;top:200px;width:246px;text-align:center;font-size:11px;color:var(--sub)}
+/* 하단 */
+.me{position:absolute;left:12px;bottom:10px;display:flex;align-items:flex-end;gap:10px}
+.hand{display:flex}.hand .c{width:60px;height:84px}.hand .c+.c{margin-left:-14px;transform:rotate(6deg)}.hand .c:first-child{transform:rotate(-6deg)}
+.hand .c b{font-size:21px}.hand .c i{top:27px;font-size:15px}.hand .c u{font-size:32px}
+.mine{font-size:11px;color:var(--sub)}.mine b{display:block;color:var(--txt);font-size:14px}.mine span{color:var(--acc);font-weight:900;font-size:15px}
+.panel{position:absolute;right:12px;bottom:10px;width:392px}
+.quick{display:flex;gap:6px;margin-bottom:6px;justify-content:flex-end}.quick div{font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:var(--bg2);color:var(--sub)}
+.acts{display:flex;gap:6px}.acts div{flex:1;height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:15px;background:var(--bg2)}
+.acts small{font-size:11px;font-weight:700;opacity:.85}
+.acts .fold{background:#3a2026;color:#ffb3b5}.acts .call{background:var(--acc);color:#06261c}.acts .raise{background:#2b3b55;color:#cfe0ff}
+</style></head><body>
+<div class="top"><div class="ic">≡</div><b>하늘의 방</b><span>텍사스 홀덤 · 50/100 · 6명</span>
+<div class="r"><div class="bal"><i></i>12,400</div><div class="ic">?</div><div class="ic">💬</div></div></div>
+<div class="table"></div>
+
+<div class="p" style="left:52px;top:118px"><div class="ring"><div class="f" style="background:#6a7fd8">바</div></div><div class="plate"><b>바다봇</b><span>4,820</span></div></div>
+<div class="bet" style="left:156px;top:146px"><i></i>100</div><div class="mini" style="left:142px;top:116px"><i></i><i></i></div>
+<div class="p fold" style="left:236px;top:30px"><div class="ring"><div class="f" style="background:#8a8f99">민</div></div><div class="plate"><b>민지</b><span>다이</span></div></div>
+<div class="p turn" style="left:516px;top:30px"><div class="act" style="background:var(--acc);color:#06261c">생각 중 12</div><div class="ring"><div class="f" style="background:#d88a6a">들</div></div><div class="plate"><b>들꽃봇</b><span>5,300</span></div></div>
+<div class="btn-d" style="left:500px;top:96px">D</div><div class="mini" style="left:620px;top:46px"><i></i><i></i></div>
+<div class="p" style="left:700px;top:118px"><div class="act" style="background:var(--warn);color:#2a1206">올인</div><div class="ring"><div class="f" style="background:#5fb0c9">준</div></div><div class="plate"><b>준호</b><span>0</span></div></div>
+<div class="bet" style="left:620px;top:178px"><i></i>4,000</div>
+
+<div class="pot">판돈<div>3,250</div></div>
+<div class="board"><div class="c"><b>A</b><i>♠</i><u>♠</u></div><div class="c r"><b>10</b><i>♥</i><u>♥</u></div><div class="c"><b>7</b><i>♣</i><u>♣</u></div><div class="c e"></div><div class="c e"></div></div>
+<div class="hint">내 패: <b style="color:#fff">원 페어 (K)</b></div>
+
+<div class="me"><div class="hand"><div class="c r"><b>K</b><i>♦</i><u>♦</u></div><div class="c"><b>K</b><i>♠</i><u>♠</u></div></div>
+<div class="mine"><b>하늘 (나)</b><span>9,600</span></div></div>
+<div class="panel"><div class="quick"><div>½ 판돈</div><div>판돈만큼</div><div>2배</div></div>
+<div class="acts"><div class="fold">다이</div><div class="call">콜<small>400</small></div><div class="raise">레이즈<small>800~</small></div><div class="raise">올인<small>9,600</small></div></div></div>
+</body></html>

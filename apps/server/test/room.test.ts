@@ -60,6 +60,7 @@ const bob = { userId: '00000000-0000-4000-8000-00000000000b', nickname: '밥' };
 let wallet: MemoryWallet;
 let manager: RoomManager;
 let notices: Array<{ userId: string; message: string }>;
+let leftUsers: string[];
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
@@ -67,6 +68,7 @@ beforeEach(() => {
   wallet.balances.set(alice.userId, 20_000);
   wallet.balances.set(bob.userId, 20_000);
   notices = [];
+  leftUsers = [];
   const rng = seeded(7);
   manager = new RoomManager({
     wallet,
@@ -78,6 +80,7 @@ beforeEach(() => {
       roomClosed: () => undefined,
       lobbyChanged: () => undefined,
       notice: (userId, message) => notices.push({ userId, message }),
+      memberLeft: (_room, userId) => leftUsers.push(userId),
     },
     logError: (message, error) => {
       throw new Error(`${message}: ${String(error)}`);
@@ -182,6 +185,8 @@ describe('나가기·접속 끊김·재접속', () => {
     expect(wallet.balances.get(alice.userId)).toBe(20_000 - 5_000 + recorded.finalChips);
     // 사람이 없으니 방이 닫힌다
     expect(manager.getRoom(room.id)).toBeUndefined();
+    // 판이 끝나 일어난 사람에게 로비 화면용 스냅샷을 보내도록 알린다
+    expect(leftUsers).toEqual([alice.userId]);
   });
 
   it('접속이 끊기면 30초 동안 자리를 지키고, 그 뒤에는 봇이 대신하며, 다시 접속하면 돌아온다', async () => {

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--lac:#16110f;--lac2:#231a16;--red:#7a1f22;--gold:#e2c27d;--ivory:#f5eedf;--ink:#1c1714;--pearl:linear-gradient(115deg,#a9e1d6,#e3c6ef 30%,#f6e7b0 55%,#b9d8f2 80%,#a9e1d6)}
+body{width:844px;height:390px;overflow:hidden;position:relative;font-family:'Noto Sans KR',sans-serif;color:var(--ivory);
+background:#3a2418;background-image:repeating-linear-gradient(92deg,rgba(0,0,0,.18) 0 2px,transparent 2px 9px,rgba(255,255,255,.03) 9px 10px,transparent 10px 23px)}
+.top{position:absolute;inset:0 0 auto;height:38px;display:flex;align-items:center;gap:16px;padding:0 18px;font-size:13px;background:rgba(14,10,8,.72)}
+.top h1{font-family:'Gowun Batang',serif;font-size:16px;font-weight:700;color:var(--gold)}
+.top .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.top .chip{font-variant-numeric:tabular-nums;font-weight:700}
+.top .b{border:1px solid rgba(226,194,125,.45);color:var(--gold);border-radius:5px;padding:4px 10px;font-size:12px}
+/* 교자상 */
+.table{position:absolute;left:96px;top:58px;width:652px;height:206px;border-radius:26px;background:radial-gradient(ellipse at 50% 35%,var(--lac2),var(--lac) 70%);
+box-shadow:0 0 0 7px var(--red),0 0 0 9px #4a1214,0 14px 22px rgba(0,0,0,.55)}
+.table::before{content:"";position:absolute;inset:12px;border-radius:16px;border:2px solid transparent;
+background:var(--pearl) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.75}
+.orn{position:absolute;width:16px;height:16px;transform:rotate(45deg);background:var(--pearl);opacity:.85}
+/* 자리 */
+.seat{position:absolute;display:flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:30px;background:rgba(16,11,9,.92);border:1px solid rgba(226,194,125,.25);font-size:12px;min-width:126px}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:'Gowun Batang',serif;font-weight:700;font-size:15px;color:var(--ink);background:var(--pearl)}
+.seat b{display:block;font-size:13px}.seat span{color:#cbbfa8;font-variant-numeric:tabular-nums}
+.seat.turn{border-color:var(--gold);box-shadow:0 0 0 2px rgba(226,194,125,.35)}
+.seat.turn .av{background:conic-gradient(var(--gold) 0 62%,#3a2d24 62% 100%);padding:3px}
+.seat.turn .av i{width:100%;height:100%;border-radius:50%;background:var(--pearl);display:grid;place-items:center;font-style:normal}
+.seat.fold{opacity:.45}.seat.fold .av{background:#6d6258}
+.tag{position:absolute;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
+.bet{position:absolute;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold)}
+.bet i{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle,var(--gold) 0 35%,var(--red) 36% 70%,var(--gold) 71%)}
+.dealer{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--ivory);color:var(--ink);font:900 11px 'Noto Sans KR';display:grid;place-items:center}
+/* 가운데 */
+.pot{position:absolute;left:0;right:0;top:82px;text-align:center}
+.pot small{font-family:'Gowun Batang',serif;color:var(--gold);font-size:13px;letter-spacing:.2em}
+.pot div{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+.board{position:absolute;left:294px;top:136px;display:flex;gap:7px}
+.c{position:relative;width:46px;height:64px;border-radius:6px;background:var(--ivory);color:var(--ink);box-shadow:0 3px 6px rgba(0,0,0,.45)}
+.c b{position:absolute;left:5px;top:3px;font:900 16px/1 'Noto Sans KR'}.c i{position:absolute;left:6px;top:21px;font-style:normal;font-size:12px}
+.c u{position:absolute;right:6px;bottom:3px;text-decoration:none;font-size:24px}
+.c.r{color:#a3262a}
+.c.bk{background:var(--red);border:3px solid var(--ivory);background-image:repeating-linear-gradient(45deg,rgba(226,194,125,.35) 0 2px,transparent 2px 7px)}
+.burn{position:absolute;left:238px;top:146px;width:38px;height:52px;transform:rotate(-14deg);opacity:.6}
+/* 내 자리 */
+.me{position:absolute;left:0;right:0;bottom:0;height:112px;display:flex;align-items:flex-end;padding:0 18px 12px;gap:14px;background:linear-gradient(transparent,rgba(10,7,5,.9) 45%)}
+.hand{display:flex;gap:6px}.hand .c{width:62px;height:86px}.hand .c b{font-size:20px}.hand .c i{top:26px;font-size:15px}.hand .c u{font-size:34px}
+.who{padding-bottom:6px;font-size:12px;color:#cbbfa8}.who b{display:block;color:var(--ivory);font-size:15px}
+.who em{font-style:normal;color:var(--gold);font-weight:700}
+.dec{margin-left:auto;text-align:right}
+.dec p{font-size:13px;margin-bottom:6px;color:#cbbfa8}.dec p strong{font-size:18px;color:var(--ivory);font-variant-numeric:tabular-nums}
+.timer{height:4px;width:100%;background:#3a2d24;border-radius:2px;margin-bottom:8px}.timer div{height:100%;width:62%;background:var(--gold);border-radius:2px}
+.acts{display:flex;gap:8px}.acts div{min-width:78px;height:46px;padding:0 12px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:15px;background:#2b211c;border:1px solid rgba(226,194,125,.3)}
+.acts .main{background:var(--red);color:var(--gold);border-color:var(--gold)}
+</style></head><body>
+<div class="top"><h1>텍사스 홀덤 · 하늘의 방</h1><span>블라인드 50 / 100</span><span>3번째 판</span>
+<div class="r"><span class="chip">보유 12,400</span><span class="b">족보</span><span class="b">나가기</span></div></div>
+<div class="table"></div>
+<div class="orn" style="left:118px;top:80px"></div><div class="orn" style="left:710px;top:80px"></div>
+<div class="orn" style="left:118px;top:226px"></div><div class="orn" style="left:710px;top:226px"></div>
+
+<div class="seat" style="left:18px;top:120px"><div class="av">바</div><div><b>바다봇</b><span>4,820</span></div></div>
+<div class="bet" style="left:150px;top:132px"><i></i>100</div>
+<div class="seat fold" style="left:214px;top:44px"><div class="av">민</div><div><b>민지</b><span>다이 · 6,100</span></div></div>
+<div class="seat turn" style="left:500px;top:44px"><div class="av"><i>들</i></div><div><b>들꽃봇</b><span>생각 중… 5,300</span></div></div>
+<div class="dealer" style="left:480px;top:92px">D</div>
+<div class="seat" style="left:700px;top:120px"><div class="av">준</div><div><b>준호</b><span>4,000</span></div></div>
+<div class="tag" style="left:732px;top:104px;background:var(--gold);color:var(--ink)">올인</div>
+<div class="bet" style="left:640px;top:166px"><i></i>4,000</div>
+
+<div class="pot"><small>판 돈</small><div>3,250</div></div>
+<div class="c bk burn"></div>
+<div class="board">
+<div class="c"><b>A</b><i>♠</i><u>♠</u></div><div class="c r"><b>10</b><i>♥</i><u>♥</u></div><div class="c"><b>7</b><i>♣</i><u>♣</u></div><div class="c bk"></div><div class="c bk"></div></div>
+
+<div class="me">
+<div class="hand"><div class="c r"><b>K</b><i>♦</i><u>♦</u></div><div class="c"><b>K</b><i>♠</i><u>♠</u></div></div>
+<div class="who"><b>하늘 (나)</b>테이블 <em>9,600</em> · 원 페어</div>
+<div class="dec"><p>콜 <strong>400</strong> 하면 계속 · 남은 <strong>12초</strong></p><div class="timer"><div></div></div>
+<div class="acts"><div>다이</div><div class="main">콜 400</div><div>레이즈</div><div>올인</div></div></div>
+</div>
+</body></html>

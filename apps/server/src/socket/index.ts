@@ -27,6 +27,7 @@ export interface SocketLayer {
   roomClosed(room: GameRoom, memberIds: string[]): void;
   lobbyChanged(): void;
   notice(userId: string, message: string): void;
+  memberLeft(room: GameRoom, userId: string): void;
 }
 
 export interface SocketOptions {
@@ -112,6 +113,12 @@ export function createSocketLayer(options: SocketOptions): SocketLayer {
     }, 300),
     notice(userId, message) {
       userSockets.get(userId)?.emit('server:notice', { message });
+    },
+    memberLeft(room, userId) {
+      const socket = userSockets.get(userId);
+      if (!socket) return;
+      void socket.leave(roomChannel(room.id));
+      sendSnapshot(socket);
     },
   };
 

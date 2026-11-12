@@ -13,7 +13,8 @@
     "build": "pnpm -r run build",
     "dev:web": "pnpm --filter @card-game/web dev",
     "dev:server": "pnpm --filter @card-game/server dev",
-    "sim:stud7": "pnpm --filter @card-game/server sim:stud7"
+    "sim:stud7": "pnpm --filter @card-game/server sim:stud7",
+    "sim:holdem": "pnpm --filter @card-game/server sim:holdem"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

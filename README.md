@@ -7,7 +7,7 @@
 - 아이디/비밀번호 로그인, 칩·전적·닉네임 영구 저장
 - 칩은 **가상 재화**이며 실제 돈과 연결되지 않습니다.
 
-> 진행 상황: 4단계(훌라 엔진과 봇)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
+> 진행 상황: 5단계(DB와 회원가입·로그인)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
 
 ## 문서
 - [`PROMPT.md`](PROMPT.md): 전체 요구사항
@@ -23,7 +23,7 @@
 ## 폴더 구조
 ```
 apps/web              프론트엔드 (React + TypeScript + Vite)
-apps/server           백엔드 (Node.js + TypeScript, Socket.IO 예정)
+apps/server           백엔드 (Node.js + TypeScript, Fastify, Drizzle ORM, Socket.IO 예정)
 packages/game-core    서버·클라이언트 공유 게임 로직 (카드, 셔플, 족보 판정기, 게임 엔진, 봇)
 ```
 
@@ -45,6 +45,31 @@ pnpm dev:server
 → http://localhost:3001/health
 
 환경 변수는 `.env.example`을 복사해 `.env`로 만든 뒤 채웁니다. `.env`는 커밋하지 않습니다.
+
+### DB
+- 로컬에서는 **PGlite**(설치가 필요 없는 PostgreSQL)를 씁니다. `DATABASE_URL`을 비워 두면 `apps/server/data/pglite` 폴더에 데이터가 저장되고, 서버가 시작할 때 마이그레이션이 자동으로 적용됩니다. 이 폴더는 커밋하지 않습니다. 초기화하려면 서버를 끄고 폴더를 지우면 됩니다.
+- 배포에서는 `DATABASE_URL`에 외부 무료 PostgreSQL 접속 문자열을 넣습니다(9단계에서 확정). 로컬과 같은 스키마·마이그레이션을 씁니다.
+- 스키마(`apps/server/src/db/schema.ts`)를 바꾸면 마이그레이션 SQL을 새로 만들어 함께 커밋합니다.
+```bash
+pnpm --filter @card-game/server db:generate
+```
+
+### 인증 API
+| 요청 | 설명 |
+|---|---|
+| `POST /api/auth/signup` | 회원가입 (아이디·비밀번호·비밀번호 확인·닉네임) 후 바로 로그인, 기본 칩 10,000개 |
+| `GET /api/auth/check-username`, `check-nickname` | 실시간 중복 확인 |
+| `POST /api/auth/login` | 로그인 (`remember`: 로그인 상태 유지). 다른 곳의 기존 로그인은 끊깁니다 |
+| `GET /api/auth/me` | 쿠키로 자동 로그인, 내 정보·칩 잔액 |
+| `POST /api/auth/logout` | 로그아웃 (서버 세션 삭제) |
+| `PATCH /api/account/nickname` | 닉네임 변경 |
+| `POST /api/account/password` | 비밀번호 변경 (현재 비밀번호 확인) |
+| `POST /api/account/delete` | 회원 탈퇴 (비밀번호 확인, 전적은 익명 처리) |
+
+- 비밀번호는 argon2id 해시로만, 세션 토큰은 SHA-256 해시로만 DB에 저장합니다.
+- 세션 쿠키는 `HttpOnly`, `SameSite=Lax`, 배포에서는 `Secure`입니다. 로그인 상태 유지를 켜면 30일(접속할 때마다 연장), 끄면 브라우저를 닫을 때 사라집니다.
+- 로그인 5번 실패 시 그 아이디와 IP를 15분간 잠급니다. 실패 메시지는 항상 "아이디 또는 비밀번호가 올바르지 않습니다."입니다.
+- 비밀번호 찾기는 없습니다(이메일을 받지 않음). 비밀번호를 잊으면 복구할 수 없습니다.
 
 ## 테스트와 검사
 ```bash
@@ -84,7 +109,7 @@ pnpm sim:hula
 pnpm sim:hula --players 4 --games 500
 ```
 
-`pnpm test`에는 족보 판정 **전수 테스트**(5장 조합 2,598,960가지의 족보별 개수 검증)가 들어 있으며, 몇 초 안에 끝납니다.
+`pnpm test`에는 족보 판정 **전수 테스트**(5장 조합 2,598,960가지의 족보별 개수 검증)와 서버 인증 테스트(메모리 PGlite 사용)가 들어 있으며, 몇십 초 안에 끝납니다.
 
 ## 게임 규칙 요약
 ### 7포커 (2~5인)
@@ -114,9 +139,9 @@ pnpm sim:hula --players 4 --games 500
 
 ## 기술 스택 (모두 무료/오픈소스)
 - 프론트엔드: React, Vite (Tailwind CSS, Framer Motion은 7단계에서 추가)
-- 백엔드: Node.js, Socket.IO
+- 백엔드: Node.js, Fastify, Socket.IO(6단계), Drizzle ORM, argon2id(@node-rs/argon2), zod
 - 공통 게임 로직: `packages/game-core` (순수 TypeScript, Node/브라우저 API 의존 없음)
-- DB: 로컬 SQLite / 배포 외부 무료 PostgreSQL (5단계, 9단계에서 확정)
+- DB: 로컬 PGlite / 배포 외부 무료 PostgreSQL (서비스는 9단계에서 확정). 원래 계획은 로컬 SQLite였지만, 스키마를 한 벌로 관리하려고 5단계에서 PGlite로 바꿨습니다.
 - 테스트: Vitest / 린트: ESLint + typescript-eslint / CI: GitHub Actions
 - TypeScript는 typescript-eslint 호환을 위해 6.0대로 고정했습니다.
 

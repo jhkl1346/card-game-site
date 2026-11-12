@@ -21,7 +21,8 @@
 - 프론트엔드: React + TypeScript + Vite, Tailwind CSS, 애니메이션은 Framer Motion (모두 오픈소스)
 - 백엔드: Node.js + TypeScript, WebSocket(Socket.IO) (오픈소스)
 - 공통 게임 로직은 서버/클라이언트가 공유하는 **순수 TypeScript 패키지(monorepo)** 로 분리
-- DB: 로컬 개발은 SQLite(무료, 설치 불필요), 배포는 **무료 PostgreSQL 호스팅**(후보는 아래 "무료 배포 구성" 참고) (ORM은 Prisma 또는 Drizzle, 둘 다 오픈소스)
+- DB: 로컬 개발은 PGlite(WASM으로 동작하는 PostgreSQL, 무료·설치 불필요), 배포는 **무료 PostgreSQL 호스팅**(후보는 아래 "무료 배포 구성" 참고) (ORM은 Prisma 또는 Drizzle, 둘 다 오픈소스)
+  - 5단계에서 변경(2026-11-12, 사용자 확인): 처음에는 로컬 SQLite였으나, SQLite와 PostgreSQL은 SQL 문법이 달라 스키마·마이그레이션·쿼리를 두 벌 관리해야 하고 로컬에서 통과한 코드가 배포 DB에서 깨질 위험이 있어, 로컬에서도 같은 PostgreSQL을 쓰는 PGlite로 바꿨다.
 - 테스트: Vitest (오픈소스)
 - 형상 관리/CI: Git + GitHub, GitHub Actions(무료 사용량 범위 내에서만 사용하고, 비공개 저장소의 월 무료 실행 시간 한도를 초과하지 않도록 CI를 가볍게 유지)
 
@@ -106,7 +107,7 @@
 - 칩 잔액 변경은 **판이 끝날 때 한 번의 트랜잭션**으로 처리한다. 같은 판 결과를 중복 정산하지 않도록 `gameId` 유니크 제약을 둔다.
 - 판 중에는 칩 증감을 메모리에서만 관리하고, 입장 시 잔액에서 바이인(buy-in) 금액만큼 차감한다. 중도 퇴장이나 접속 끊김도 정상 종료와 같은 정산 로직을 탄다.
 - 세션 토큰은 DB에 **해시로만** 저장한다.
-- 로컬 개발은 SQLite, 배포는 외부 무료 PostgreSQL을 쓰고, 마이그레이션 파일을 관리한다.
+- 로컬 개발은 PGlite(파일 하나로 동작하는 PostgreSQL), 배포는 외부 무료 PostgreSQL을 쓰고, 마이그레이션 파일을 관리한다.
 - 번 카드, 남은 덱, 셔플 시드는 **DB에 저장하지 않는다.** (유출 위험 방지)
 
 # 칩 지급과 구제 칩

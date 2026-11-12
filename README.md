@@ -12,6 +12,7 @@
 ## 요구사항 문서
 - [`PROMPT.md`](PROMPT.md): 전체 요구사항
 - [`CLAUDE.md`](CLAUDE.md): 작업 시 항상 지킬 핵심 규칙
+- [`PRODUCT.md`](PRODUCT.md): 사용자, 제품 목적, 화면 설계 원칙
 
 ## 기술 스택 (모두 무료/오픈소스)
 - 프론트엔드: React + TypeScript + Vite, Tailwind CSS, Framer Motion

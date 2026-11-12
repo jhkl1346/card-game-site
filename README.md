@@ -76,18 +76,23 @@ pnpm build
 
 ## CI (GitHub Actions)
 PR과 `main` 푸시마다 설치 → 린트 → 타입 검사 → 테스트 → 빌드를 실행합니다(`.github/workflows/ci.yml`).
-- pnpm 의존성 캐시를 쓰고, 같은 브랜치의 이전 실행은 자동으로 취소해 비공개 저장소의 월 무료 실행 시간을 아낍니다.
+- pnpm 의존성 캐시를 쓰고, 같은 브랜치의 이전 실행은 자동으로 취소합니다. (공개 저장소는 GitHub 호스팅 러너 사용이 무료이지만, 다시 비공개로 바꿀 경우에 대비해 가볍게 유지합니다.)
 
-## `main` 브랜치 보호 (수동 설정 안내)
-GitHub 무료 요금제에서는 **비공개 저장소에 브랜치 보호 규칙을 설정할 수 없습니다**. API로 시도했을 때 "Upgrade to GitHub Pro or make this repository public" 응답을 받았습니다.
-그래서 지금은 "PR로만 합치기" 규칙을 작업 방식으로 지킵니다. 나중에 저장소를 공개로 바꾸거나 요금제가 바뀌면 아래처럼 설정하세요.
+## `main` 브랜치 보호
+저장소가 공개(public)이므로 무료 요금제에서도 브랜치 보호를 쓸 수 있고, `gh api`로 아래 규칙을 설정해 두었습니다.
 
-1. 저장소 → **Settings** → **Branches** (또는 **Rules → Rulesets**)
-2. `main`에 규칙 추가
-   - **Require a pull request before merging** 켜기
-   - **Require status checks to pass** 켜기 → `설치 · 린트 · 타입 검사 · 테스트 · 빌드` 선택
-   - **Require branches to be up to date before merging** 켜기
-3. 저장
+| 규칙 | 설정 |
+|---|---|
+| PR로만 합치기 | 필수 (리뷰 승인 수 0, 혼자 개발하므로 승인 없이 병합 가능) |
+| 필수 CI 검사 | `설치 · 린트 · 타입 검사 · 테스트 · 빌드` 통과 |
+| 병합 전 최신 `main` 반영 | 필수 |
+| 선형 이력 | 필수 (squash merge만 사용) |
+| 강제 푸시 / 브랜치 삭제 | 금지 |
+| 관리자에게도 적용 | 아니요 (긴급 상황에서 저장소 소유자는 예외 가능) |
+
+확인하거나 바꾸려면 저장소 → **Settings** → **Branches**에서 `main` 규칙을 엽니다.
+
+> 저장소를 다시 비공개로 바꾸면 무료 요금제에서는 브랜치 보호가 동작하지 않습니다. 그때는 "PR로만 합치기"를 작업 방식으로 지킵니다.
 
 ## 라이선스
 [MIT](LICENSE)

@@ -14,7 +14,8 @@
     "dev:web": "pnpm --filter @card-game/web dev",
     "dev:server": "pnpm --filter @card-game/server dev",
     "sim:stud7": "pnpm --filter @card-game/server sim:stud7",
-    "sim:holdem": "pnpm --filter @card-game/server sim:holdem"
+    "sim:holdem": "pnpm --filter @card-game/server sim:holdem",
+    "sim:hula": "pnpm --filter @card-game/server sim:hula"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

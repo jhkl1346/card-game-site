@@ -14,6 +14,7 @@ import {
   type Stud7State,
   type Stud7View,
 } from '../src/index.js';
+import { seeded } from './seeded.js';
 
 const toActId = (s: Stud7State) => s.players[s.toAct]!.id;
 
@@ -92,23 +93,25 @@ describe('7포커 봇', () => {
   });
 
   it('봇은 무작위로 치는 상대보다 칩을 더 많이 딴다 (기본 전략 확인)', () => {
+    // 판별 결과의 분산이 커서 고정 시드로 결정적으로 검사한다 (400판 단위로는 13~20% 확률로 음수)
+    const rng = seeded(20261112);
     let botTotal = 0;
-    for (let g = 0; g < 400; g++) {
+    for (let g = 0; g < 2_000; g++) {
       let s = createStud7(
         [
           { id: 'bot', name: '봇', chips: 3_000, isBot: true },
           { id: 'rnd', name: '무작위', chips: 3_000 },
         ],
-        { ante: 100, randomInt },
+        { ante: 100, randomInt: rng.randomInt },
       );
       while (s.phase !== 'finished') {
         const id = toActId(s);
         const action =
           id === 'bot'
-            ? decideStud7Action(getStud7View(s, id))
+            ? decideStud7Action(getStud7View(s, id), rng.random)
             : (() => {
                 const legal = getStud7LegalActions(s, id);
-                return { type: legal[randomInt(legal.length)]!.type };
+                return { type: legal[rng.randomInt(legal.length)]!.type };
               })();
         s = applyStud7Action(s, id, action);
       }

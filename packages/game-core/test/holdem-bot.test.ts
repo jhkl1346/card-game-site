@@ -11,6 +11,7 @@ import {
   preflopStrength,
   type HoldemState,
 } from '../src/index.js';
+import { seeded } from './seeded.js';
 
 const toActId = (s: HoldemState) => s.players[s.toAct]!.id;
 
@@ -51,22 +52,24 @@ describe('홀덤 봇', () => {
   });
 
   it('봇은 무작위로 치는 상대보다 칩을 더 많이 딴다', () => {
+    // 판별 결과의 분산이 커서 고정 시드로 결정적으로 검사한다
+    const rng = seeded(20261112);
     let botTotal = 0;
-    for (let g = 0; g < 400; g++) {
+    for (let g = 0; g < 2_000; g++) {
       let s = createHoldem(
         [
           { id: 'bot', name: '봇', chips: 3_000, isBot: true },
           { id: 'rnd', name: '무작위', chips: 3_000 },
         ],
-        { smallBlind: 50, bigBlind: 100, buttonIndex: g % 2, randomInt },
+        { smallBlind: 50, bigBlind: 100, buttonIndex: g % 2, randomInt: rng.randomInt },
       );
       while (s.phase !== 'finished') {
         const id = toActId(s);
         if (id === 'bot') {
-          s = applyHoldemAction(s, id, decideHoldemAction(getHoldemView(s, id)));
+          s = applyHoldemAction(s, id, decideHoldemAction(getHoldemView(s, id), rng.random));
         } else {
           const legal = getHoldemLegalActions(s, id);
-          const pick = legal[randomInt(legal.length)]!;
+          const pick = legal[rng.randomInt(legal.length)]!;
           s = applyHoldemAction(s, id, pick.min !== undefined ? { type: pick.type, amount: pick.min } : { type: pick.type });
         }
       }

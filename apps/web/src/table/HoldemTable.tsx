@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { won } from '../lib/types.js';
 import { PlayingCard } from '../components/PlayingCard.js';
 import type { TableContext } from '../screens/TableScreen.js';
-import { ActButton, BetChips, BottomBand, Decision, MyInfo, NextHandBar, Payout, Pot, SeatPlate } from './common.js';
+import { ActButton, BetChips, BottomBand, Decision, MY_CHIPS, MyArea, MyLine, NextHandBar, Payout, Pot, SeatPlate } from './common.js';
 import { ResultBanner, type ResultLine } from './ResultBanner.js';
 
 const DECK = { x: 206, y: 140 };
 const BURN = { x: 250, y: 146 };
-const BOARD_X = 300;
-const BOARD_Y = 140;
+const BOARD_X = 292;
+const BOARD_Y = 132;
 
 export function HoldemTable({ ctx, view }: { ctx: TableContext; view: HoldemView }) {
   const { snap, placed, remaining, myRemaining, act } = ctx;
@@ -80,7 +80,7 @@ export function HoldemTable({ ctx, view }: { ctx: TableContext; view: HoldemView
           </div>
         );
       })}
-      {me && <BetChips x={422} y={300} amount={me.roundBet} k={`${handKey}-${view.street}-me`} />}
+      {me && <BetChips x={MY_CHIPS.x} y={MY_CHIPS.y + 40} at={MY_CHIPS} amount={me.roundBet} k={`${handKey}-${view.street}-me`} />}
 
       {/* 덱과 번 카드 */}
       <div className="absolute" style={{ left: DECK.x - 19, top: DECK.y }} aria-label={`남은 덱 ${view.deckCount}장`}>
@@ -99,16 +99,16 @@ export function HoldemTable({ ctx, view }: { ctx: TableContext; view: HoldemView
         ))}
       </div>
 
-      <Pot amount={view.pot} top={88} paid={finished} />
+      <Pot amount={view.pot} x={DECK.x + 10} top={198} paid={finished} />
 
       {/* 가운데 카드 (번 카드 연출 0.5초 뒤에 펼친다) */}
       <div className="absolute flex gap-[7px]" style={{ left: BOARD_X, top: BOARD_Y }}>
         {Array.from({ length: 5 }, (_, i) => {
           const c = view.board[i];
-          if (!c) return <div key={i} className="h-[64px] w-[46px] rounded-[6px] border border-dashed border-gold/15" />;
+          if (!c) return <div key={i} className="h-[86px] w-[62px] rounded-[7px] border border-dashed border-gold/15" />;
           const fresh = i >= prevBoard;
           const delay = fresh ? (newBurn ? 0.5 : 0) + (i - prevBoard) * 0.12 : 0;
-          return <PlayingCard key={`${handKey}-b${i}`} card={c} from={fresh ? { x: DECK.x - BOARD_X - i * 53, y: 0 } : undefined} delay={delay} />;
+          return <PlayingCard key={`${handKey}-b${i}`} card={c} size="lg" from={fresh ? { x: DECK.x - BOARD_X - i * 69, y: 0 } : undefined} delay={delay} />;
         })}
       </div>
 
@@ -118,34 +118,37 @@ export function HoldemTable({ ctx, view }: { ctx: TableContext; view: HoldemView
       {/* 내 자리 */}
       {!snap.me.isSpectator && (
         <BottomBand>
-          <div className="flex gap-1.5">
-            {(me?.hole ?? []).map((c, i) => (
-              <PlayingCard key={`${handKey}-me-${i}`} card={c} size="lg" dim={me?.folded} from={{ x: DECK.x - 50 - i * 68, y: DECK.y - 300 }} delay={0.1 + i * 0.25} />
-            ))}
-          </div>
-          <MyInfo
-            name={me?.name ?? snap.room.seats[snap.me.seatIndex ?? 0]?.name ?? ''}
-            stack={me?.stack ?? null}
-            line={
-              me ? (
-                <>
-                  {me.folded ? '폴드했습니다' : myHandName(me.hole, view.board)}
-                  {mySeat?.leaving && ' · 판이 끝나면 일어납니다'}
-                  {view.buttonId === me.id && ' · 딜러'}
-                  {view.smallBlindId === me.id && ' · 스몰블라인드'}
-                  {view.bigBlindId === me.id && ' · 빅블라인드'}
-                </>
-              ) : (
-                '다음 판부터 참여합니다'
-              )
+          <MyArea
+            info={
+              <MyLine
+                name={me?.name ?? snap.room.seats[snap.me.seatIndex ?? 0]?.name ?? ''}
+                stack={me?.stack ?? null}
+                note={
+                  me
+                    ? [
+                        me.folded ? '폴드했습니다' : myHandName(me.hole, view.board),
+                        view.buttonId === me.id ? '딜러' : view.smallBlindId === me.id ? '스몰블라인드' : view.bigBlindId === me.id ? '빅블라인드' : '',
+                        mySeat?.leaving ? '판이 끝나면 일어납니다' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : '다음 판부터 참여합니다'
+                }
+              />
             }
-          />
+          >
+            <div className="flex gap-1.5">
+              {(me?.hole ?? []).map((c, i) => (
+                <PlayingCard key={`${handKey}-me-${i}`} card={c} size="lg" dim={me?.folded} from={{ x: DECK.x - 50 - i * 68, y: DECK.y - 300 }} delay={0.1 + i * 0.25} />
+              ))}
+            </div>
+          </MyArea>
           {finished ? (
             <div className="ml-auto pb-3">
               <NextHandBar nextHandAt={snap.nextHandAt} clockOffset={ctx.clockOffset} now={ctx.now} />
             </div>
           ) : (
-            <HoldemActions view={view} sentence={sentence} remaining={myRemaining} total={turnSecs} act={act} />
+            <HoldemActions view={view} sentence={sentence} remaining={myRemaining} total={turnSecs} act={act} busy={ctx.pending} />
           )}
         </BottomBand>
       )}
@@ -183,12 +186,14 @@ function HoldemActions({
   remaining,
   total,
   act,
+  busy,
 }: {
   view: HoldemView;
   sentence: React.ReactNode;
   remaining: number | null;
   total: number;
   act: (a: unknown) => Promise<void>;
+  busy: boolean;
 }) {
   const legal = view.legalActions;
   const get = (t: string) => legal.find((a) => a.type === t);
@@ -221,14 +226,14 @@ function HoldemActions({
   const raiseLabel = raise?.type === 'bet' ? '벳' : '레이즈';
 
   return (
-    <Decision sentence={sentence} remaining={remaining} total={total}>
+    <Decision sentence={sentence} remaining={remaining} total={total} busy={busy}>
       <AnimatePresence>
         {raising && raise && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="pearl-ring absolute right-4 bottom-[118px] z-20 w-[330px] rounded-xl bg-lacquer-2 p-3 shadow-[0_10px_24px_rgb(0_0_0/0.55)]"
+            className="pearl-ring absolute right-4 bottom-[130px] z-20 w-[330px] rounded-xl bg-lacquer-2 p-3 shadow-[0_10px_24px_rgb(0_0_0/0.55)]"
           >
             <div className="mb-2 flex items-baseline justify-between">
               <span className="text-[13px] text-muted">{raiseLabel} 금액 (이번 라운드 총액)</span>

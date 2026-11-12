@@ -9,6 +9,9 @@ export const STAGE_H = 390;
 /** 테이블 가운데 (팟·덱 위치 기준점) */
 export const CENTER = { x: 422, y: 150 };
 export const DECK_POS = { x: 236, y: 150 };
+/** 아래 띠 높이와, 내 베팅 칩을 놓는 자리 (테이블 아래쪽 가운데) */
+export const BAND_H = 124;
+export const MY_CHIPS = { x: 422, y: 246 };
 
 export function Stage({ children }: { children: ReactNode }) {
   const [scale, setScale] = useState(1);
@@ -260,11 +263,11 @@ export function SeatPlate({
           </span>
         </button>
         <div className="min-w-0 leading-tight">
-          <b className="flex items-center gap-1 truncate text-[13px]">
+          <b className="flex items-center gap-1 truncate text-[14px]">
             {isHost && <Icon name="crown" className="h-3 w-3 shrink-0 text-gold" />}
             <span className="truncate">{seat.name}</span>
           </b>
-          <span className="block truncate text-[12px] text-muted">
+          <span className="block truncate text-[13px] text-muted">
             {tag && <b className={status.allIn ? 'text-gold' : 'text-ivory'}>{tag} · </b>}
             {/* 차례는 타이머 고리와 아래 문장으로 알리고, 여기서는 칩만 금색으로 */}
             <span className={isTurn ? 'font-bold text-gold' : undefined}>{won(seat.stack)}</span>
@@ -324,11 +327,15 @@ export function BetChips({ x, y, amount, k, at }: { x: number; y: number; amount
   );
 }
 
-export function Pot({ amount, label = '판 돈', top = 96, paid = false }: { amount: number; label?: string; top?: number; paid?: boolean }) {
+/** 판돈 표시. x를 주면 그 x를 가운데로 하는 좁은 칸에, 없으면 테이블 가운데에 놓는다 */
+export function Pot({ amount, label = '판 돈', top = 96, x, paid = false }: { amount: number; label?: string; top?: number; x?: number; paid?: boolean }) {
   return (
-    <div className={`absolute inset-x-0 text-center transition-opacity duration-500 ${paid ? 'opacity-30' : ''}`} style={{ top }}>
+    <div
+      className={`absolute text-center transition-opacity duration-500 ${x === undefined ? 'inset-x-0' : ''} ${paid ? 'opacity-30' : ''}`}
+      style={x === undefined ? { top } : { top, left: x - 70, width: 140 }}
+    >
       <small className="font-serif text-[13px] tracking-[0.2em] text-gold">{label}</small>
-      <motion.div key={amount} initial={{ scale: 1.12 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} className="text-[24px] leading-none font-black">
+      <motion.div key={amount} initial={{ scale: 1.12 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} className="text-[28px] leading-none font-black">
         {won(amount)}
       </motion.div>
     </div>
@@ -343,7 +350,7 @@ export function Payout({ deltas, placed, myId, k }: { deltas: Record<string, num
   const targets = Object.entries(deltas).flatMap(([id, amount]) => {
     if (amount <= 0) return [];
     const p = placed.find((s) => s.seat?.id === id);
-    const to = id === myId ? { x: 422, y: 300 } : p ? { x: p.x, y: p.y } : null;
+    const to = id === myId ? { x: 300, y: STAGE_H - 50 } : p ? { x: p.x, y: p.y } : null;
     return to ? [{ id, amount, to }] : [];
   });
   return (
@@ -364,12 +371,43 @@ export function Payout({ deltas, placed, myId, k }: { deltas: Record<string, num
   );
 }
 
-/** 아래 띠: 내 카드, 내 정보, 오른쪽에 결정 문장과 버튼 */
+/** 아래 띠: 왼쪽에 내 정보 한 줄과 내 카드, 오른쪽에 결정 문장과 버튼 */
 export function BottomBand({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 flex h-[112px] items-end gap-3.5 bg-gradient-to-b from-transparent to-[rgb(10_7_5/0.92)] to-45% px-4 pb-3">
+    <div
+      className="absolute inset-x-0 bottom-0 flex items-end gap-3 bg-gradient-to-b from-transparent to-[rgb(10_7_5/0.94)] to-30% px-3.5 pb-2.5"
+      style={{ height: BAND_H }}
+    >
       {children}
     </div>
+  );
+}
+
+/** 아래 띠 왼쪽: 내 정보 한 줄 + 내 카드 */
+export function MyArea({ info, children, extra }: { info: ReactNode; children: ReactNode; extra?: ReactNode }) {
+  return (
+    <div className="flex min-w-0 shrink-0 flex-col gap-1">
+      <div className="pointer-events-none relative z-10 flex items-center gap-2 text-[13px] text-muted">{info}</div>
+      <div className="flex items-end gap-2.5">
+        {children}
+        {extra}
+      </div>
+    </div>
+  );
+}
+
+/** 내 정보 한 줄: 이름 · 테이블 칩 · 덧붙일 말(족보 등) */
+export function MyLine({ name, stack, note }: { name: string; stack: number | null; note?: ReactNode }) {
+  return (
+    <>
+      <b className="text-[14px] text-ivory">{name} (나)</b>
+      {stack !== null && (
+        <span>
+          테이블 <b className="text-gold">{won(stack)}</b>
+        </span>
+      )}
+      {note && <span className="rounded bg-lacquer-3/80 px-1.5 py-px font-bold text-ivory">{note}</span>}
+    </>
   );
 }
 
@@ -378,16 +416,19 @@ export function Decision({
   remaining,
   total,
   children,
+  busy = false,
 }: {
   sentence: ReactNode;
   remaining: number | null;
   total: number;
   children?: ReactNode;
+  /** 보낸 액션의 응답을 기다리는 중이면 버튼을 잠근다 (두 번 눌림 방지) */
+  busy?: boolean;
 }) {
   const ratio = remaining === null ? 0 : Math.min(1, remaining / (total * 1000));
   return (
     <div className="ml-auto flex min-w-0 flex-col items-end">
-      <p className="mb-1.5 text-right text-[13px] text-muted" aria-live="polite">
+      <p className="mb-1.5 text-right text-[14px] text-ivory-dim" aria-live="polite">
         {sentence}
         {remaining !== null && (
           <>
@@ -401,7 +442,9 @@ export function Decision({
           <div className={`h-full rounded-full transition-[width] duration-200 ${ratio < 0.25 ? 'bg-danger' : 'bg-gold'}`} style={{ width: `${ratio * 100}%` }} />
         </div>
       )}
-      <div className="flex gap-2">{children}</div>
+      <fieldset disabled={busy} className={`flex gap-2 transition-opacity ${busy ? 'opacity-70' : ''}`}>
+        {children}
+      </fieldset>
     </div>
   );
 }
@@ -436,20 +479,6 @@ export function ActButton({
       <span className="text-[15px]">{children}</span>
       {sub !== undefined && <span className="text-[12px] font-bold opacity-85">{sub}</span>}
     </motion.button>
-  );
-}
-
-export function MyInfo({ name, stack, line }: { name: string; stack: number | null; line?: ReactNode }) {
-  return (
-    <div className="shrink-0 pb-1.5 text-[12px] text-muted">
-      <b className="block text-[15px] text-ivory">{name} (나)</b>
-      {stack !== null && (
-        <>
-          테이블 <em className="font-bold text-gold not-italic">{won(stack)}</em>
-        </>
-      )}
-      {line && <span className="block text-ivory-dim">{line}</span>}
-    </div>
   );
 }
 

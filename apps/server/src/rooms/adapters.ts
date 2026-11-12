@@ -48,6 +48,8 @@ export interface GameAdapter {
   toActId(state: unknown): string | null;
   timeoutAction(state: unknown, playerId: string): unknown;
   botAction(state: unknown, playerId: string, random: BotRandom): unknown;
+  /** 봇이 오래 생각할 필요 없는 가벼운 차례인지 (7포커 공개 카드 고르기) */
+  quickTurn?(state: unknown): boolean;
   result(state: unknown): GameResultBase | null;
 }
 
@@ -55,7 +57,8 @@ const serverRandomInt: RandomInt = (max) => randomInt(max);
 export { serverRandomInt };
 
 const stud7ActionSchema = z.object({
-  type: z.enum(['bbing', 'check', 'call', 'ddadang', 'quarter', 'half', 'full', 'die']),
+  type: z.enum(['bbing', 'check', 'call', 'ddadang', 'quarter', 'half', 'full', 'die', 'open']),
+  cardIndex: z.number().int().min(0).max(2).optional(),
 });
 
 const holdemActionSchema = z.object({
@@ -88,6 +91,7 @@ export const ADAPTERS: Readonly<Record<GameType, GameAdapter>> = {
     toActId: (s) => getStud7View(s as any, null).toActId,
     timeoutAction: (s, id) => stud7TimeoutAction(s as any, id),
     botAction: (s, id, r) => decideStud7Action(getStud7View(s as any, id), r),
+    quickTurn: (s) => (s as any).phase === 'choose',
     result: (s) => (s as any).result,
   },
   holdem: {

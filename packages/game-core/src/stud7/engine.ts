@@ -34,6 +34,8 @@ export interface Stud7Options {
 
 export interface Stud7Action {
   type: Stud7ActionType;
+  /** open(공개할 카드 고르기)일 때 처음 받은 3장 중 몇 번째 카드인지 (0~2) */
+  cardIndex?: number;
 }
 
 export interface Stud7LegalAction {
@@ -42,6 +44,8 @@ export interface Stud7LegalAction {
   amount: number;
   /** 이 액션으로 남은 칩을 모두 내게 되는지 */
   allIn: boolean;
+  /** open일 때 고를 수 있는 카드 위치 */
+  cardIndex?: number;
 }
 
 export interface Stud7SeatCard {
@@ -66,6 +70,8 @@ export interface Stud7PlayerState {
   acted: boolean;
   /** 짧은 올인으로 레이즈 권리가 다시 열리지 않은 경우 false */
   canRaise: boolean;
+  /** 공개할 카드를 이미 골랐는지 (chooseOpenCard 단계) */
+  openChosen: boolean;
 }
 
 export interface Stud7LogEntry {
@@ -105,7 +111,8 @@ export interface Stud7State {
   /** 남은 덱 (서버 전용, 클라이언트에 절대 보내지 않음) */
   readonly deck: Card[];
   readonly street: number;
-  readonly phase: 'betting' | 'finished';
+  /** choose: 첫 3장 중 공개할 카드를 고르는 중 */
+  readonly phase: 'choose' | 'betting' | 'finished';
   readonly currentBet: number;
   /** 직전 베팅/레이즈의 증가분 (따당 금액, 최소 레이즈 판단에 사용) */
   readonly lastRaiseSize: number;
@@ -298,6 +305,9 @@ function showdown(s: Draft): void {
 }
 
 function legalActionsAt(s: Stud7State, index: number): Stud7LegalAction[] {
+  if (s.phase === 'choose' && s.toAct === index) {
+    return [0, 1, 2].map((cardIndex) => ({ type: 'open' as const, amount: 0, allIn: false, cardIndex }));
+  }
   if (s.phase !== 'betting' || s.toAct !== index) return [];
   const p = s.players[index]!;
   const toCall = s.currentBet - p.roundBet;
@@ -381,6 +391,7 @@ export function createStud7(players: readonly PlayerInit[], options: Stud7Option
       raisesThisRound: 0,
       acted: false,
       canRaise: true,
+      openChosen: false,
     })),
     deck,
     street: 3,
@@ -400,11 +411,17 @@ export function createStud7(players: readonly PlayerInit[], options: Stud7Option
   // 앤티는 라운드 베팅이 아니므로 roundBet에서 뺀다
   for (const p of s.players) p.roundBet = 0;
 
-  // 첫 3장: 비공개 2장 → 공개 1장, 한 장씩 돌아가며 나눈다
-  for (const open of [false, false, true]) {
+  // 첫 3장: 한 장씩 돌아가며 나눈다. 공개 카드를 고르는 규칙이면 3장 모두 뒷면으로 준다
+  const choose = s.rules.chooseOpenCard;
+  for (const open of [false, false, !choose]) {
     for (const p of s.players) dealCard(s, p, open);
   }
-  startBettingRound(s);
+  if (choose) {
+    s.phase = 'choose';
+    s.toAct = 0;
+  } else {
+    startBettingRound(s);
+  }
   return s;
 }
 
@@ -418,6 +435,7 @@ export function applyStud7Action(state: Stud7State, playerId: string, action: St
   const index = state.players.findIndex((p) => p.id === playerId);
   if (index < 0) throw new GameRuleError('이 판의 참가자가 아닙니다');
   if (state.toAct !== index) throw new GameRuleError('내 차례가 아닙니다');
+  if (state.phase === 'choose') return applyOpenChoice(state, index, action);
   const legal = legalActionsAt(state, index).find((a) => a.type === action.type);
   if (!legal) throw new GameRuleError('지금은 할 수 없는 액션입니다');
 
@@ -460,8 +478,38 @@ export function applyStud7Action(state: Stud7State, playerId: string, action: St
   return s;
 }
 
-/** 턴 시간이 지났을 때의 자동 액션: 체크할 수 있으면 체크, 아니면 다이 */
+/**
+ * 공개할 카드 고르기. 고른 카드를 3번째 자리로 옮겨 두고(다른 사람에게는 아직 뒷면),
+ * 모두 고르면 한꺼번에 펼친 뒤 첫 베팅을 시작한다.
+ */
+function applyOpenChoice(state: Stud7State, index: number, action: Stud7Action): Stud7State {
+  if (action.type !== 'open') throw new GameRuleError('먼저 공개할 카드를 골라 주세요');
+  const i = action.cardIndex;
+  if (i === undefined || !Number.isInteger(i) || i < 0 || i > 2) throw new GameRuleError('처음 받은 3장 중에서 골라 주세요');
+  const s = clone(state);
+  const p = s.players[index]!;
+  const picked = p.cards[i]!;
+  p.cards[i] = p.cards[2]!;
+  p.cards[2] = picked;
+  p.openChosen = true;
+
+  const n = s.players.length;
+  for (let k = 1; k <= n; k++) {
+    const next = (index + k) % n;
+    if (!s.players[next]!.openChosen) {
+      s.toAct = next;
+      return s;
+    }
+  }
+  for (const pl of s.players) pl.cards[2] = { ...pl.cards[2]!, open: true };
+  s.phase = 'betting';
+  startBettingRound(s);
+  return s;
+}
+
+/** 턴 시간이 지났을 때의 자동 액션: 공개 카드 고르기는 3번째 카드, 베팅은 체크할 수 있으면 체크 아니면 다이 */
 export function stud7TimeoutAction(state: Stud7State, playerId: string): Stud7Action {
+  if (state.phase === 'choose') return { type: 'open', cardIndex: 2 };
   const legal = getStud7LegalActions(state, playerId);
   return { type: legal.some((a) => a.type === 'check') ? 'check' : 'die' };
 }
@@ -477,6 +525,8 @@ export interface Stud7PlayerView {
   allIn: boolean;
   roundBet: number;
   totalBet: number;
+  /** 공개할 카드를 골랐는지 (고른 카드가 무엇인지는 모두 고를 때까지 본인만 안다) */
+  openChosen: boolean;
   /** 볼 수 없는 카드는 null */
   cards: Array<Card | null>;
 }
@@ -530,6 +580,7 @@ export function getStud7View(state: Stud7State, playerId: string | null): Stud7V
       allIn: p.allIn,
       roundBet: p.roundBet,
       totalBet: p.totalBet,
+      openChosen: p.openChosen,
       cards: p.cards.map(({ card, open }) =>
         open || p === me || (revealAll && !p.folded) ? { ...card } : null,
       ),

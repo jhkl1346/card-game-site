@@ -111,7 +111,8 @@ describe('7포커 봇', () => {
             ? decideStud7Action(getStud7View(s, id), rng.random)
             : (() => {
                 const legal = getStud7LegalActions(s, id);
-                return { type: legal[rng.randomInt(legal.length)]!.type };
+                const a = legal[rng.randomInt(legal.length)]!;
+                return { type: a.type, cardIndex: a.cardIndex };
               })();
         s = applyStud7Action(s, id, action);
       }

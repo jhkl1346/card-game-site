@@ -7,8 +7,10 @@ import {
   decideHoldemAction,
   getHoldemLegalActions,
   getHoldemView,
+  chenScore,
   parseCards,
   preflopStrength,
+  readHoldemHand,
   type HoldemState,
 } from '../src/index.js';
 import { seeded } from './seeded.js';
@@ -71,6 +73,77 @@ describe('홀덤 봇', () => {
           const legal = getHoldemLegalActions(s, id);
           const pick = legal[rng.randomInt(legal.length)]!;
           s = applyHoldemAction(s, id, pick.min !== undefined ? { type: pick.type, amount: pick.min } : { type: pick.type });
+        }
+      }
+      botTotal += s.result!.chipDeltas.bot!;
+    }
+    expect(botTotal).toBeGreaterThan(0);
+  });
+
+  it('Chen 점수: AA 20, AKs 12, 72o는 음수', () => {
+    expect(chenScore(parseCards('As Ah'))).toBe(20);
+    expect(chenScore(parseCards('As Ks'))).toBe(12);
+    expect(chenScore(parseCards('7d 2c'))).toBeLessThan(0);
+  });
+
+  it('패 읽기: 셋 > 오버 페어 > 톱 페어 > 보드만 페어', () => {
+    const board = parseCards('9s 5d 2c');
+    const set = readHoldemHand(parseCards('9h 9d'), board, 1).made;
+    const over = readHoldemHand(parseCards('Kh Kd'), board, 1).made;
+    const top = readHoldemHand(parseCards('9c Ad'), board, 1).made;
+    const boardPair = readHoldemHand(parseCards('Ah Kd'), parseCards('9s 9d 2c'), 1).made;
+    expect(set).toBeGreaterThan(over);
+    expect(over).toBeGreaterThan(top);
+    expect(top).toBeGreaterThan(boardPair);
+    expect(readHoldemHand(parseCards('Ah 4h'), parseCards('Kh 7h 2c'), 1).drawEquity).toBeGreaterThan(0.3);
+  });
+
+  it('6인 봇 테이블에서 사람처럼 적당히 참여하고 레이즈한다 (VPIP 18~32%, PFR 9~22%)', () => {
+    const rng = seeded(99);
+    const n = 6;
+    let hands = 0;
+    let vpip = 0;
+    let pfr = 0;
+    for (let g = 0; g < 1_000; g++) {
+      let s = createHoldem(
+        Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: botProfile(i).name, chips: 10_000, isBot: true })),
+        { smallBlind: 50, bigBlind: 100, buttonIndex: g % n, randomInt: rng.randomInt },
+      );
+      while (s.phase !== 'finished') {
+        const id = toActId(s);
+        s = applyHoldemAction(s, id, decideHoldemAction(getHoldemView(s, id), rng.random));
+      }
+      for (const p of s.players) {
+        hands++;
+        const pre = s.log.filter((e) => e.playerId === p.id && e.street === 'preflop');
+        if (pre.some((e) => ['call', 'raise', 'bet', 'allin'].includes(e.action))) vpip++;
+        if (pre.some((e) => ['raise', 'bet', 'allin'].includes(e.action))) pfr++;
+      }
+    }
+    expect(vpip / hands).toBeGreaterThan(0.18);
+    expect(vpip / hands).toBeLessThan(0.32);
+    expect(pfr / hands).toBeGreaterThan(0.09);
+    expect(pfr / hands).toBeLessThan(0.22);
+  });
+
+  it('무조건 올인하는 상대에게 칩을 잃지 않는다 (겁먹고 다 접지 않음)', () => {
+    const rng = seeded(4242);
+    let botTotal = 0;
+    for (let g = 0; g < 2_000; g++) {
+      let s = createHoldem(
+        [
+          { id: 'bot', name: '봇', chips: 3_000, isBot: true },
+          { id: 'shove', name: '올인', chips: 3_000 },
+        ],
+        { smallBlind: 50, bigBlind: 100, buttonIndex: g % 2, randomInt: rng.randomInt },
+      );
+      while (s.phase !== 'finished') {
+        const id = toActId(s);
+        if (id === 'bot') s = applyHoldemAction(s, id, decideHoldemAction(getHoldemView(s, id), rng.random));
+        else {
+          const legal = getHoldemLegalActions(s, id);
+          const pick = legal.find((a) => a.type === 'allin') ?? legal.find((a) => a.type === 'call') ?? legal[0]!;
+          s = applyHoldemAction(s, id, { type: pick.type });
         }
       }
       botTotal += s.result!.chipDeltas.bot!;

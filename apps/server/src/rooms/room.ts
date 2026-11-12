@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { botProfile, botThinkDelayMs, GameRuleError, type BotRandom, type PlayerInit, type RandomInt } from '@card-game/game-core';
+import { botProfile, botQuickDelayMs, botThinkDelayMs, GameRuleError, type BotRandom, type PlayerInit, type RandomInt } from '@card-game/game-core';
 import { ZodError } from 'zod';
 import type { ServerLimits } from '../config/limits.js';
 import type { HandParticipant, WalletPort } from '../wallet/service.js';
@@ -522,7 +522,8 @@ export class GameRoom {
     if (seat?.leaving) {
       this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'timeout')), 0);
     } else if (automatic) {
-      this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'bot')), botThinkDelayMs(this.deps.botRandom));
+      const delay = this.adapter.quickTurn?.(this.state) ? botQuickDelayMs(this.deps.botRandom) : botThinkDelayMs(this.deps.botRandom);
+      this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'bot')), delay);
     } else {
       this.turnTimer = setTimeout(() => void this.run(() => this.autoAct(actorId, 'timeout')), Math.max(0, deadline! - now));
     }

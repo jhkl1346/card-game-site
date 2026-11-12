@@ -9,7 +9,7 @@ import {
   BottomBand,
   LacquerTable,
   MenuItem,
-  MyInfo,
+  MyLine,
   SeatPlate,
   Stage,
   TopBar,
@@ -31,6 +31,8 @@ export interface TableContext {
   remaining: number | null;
   /** 내 차례면 남은 시간 */
   myRemaining: number | null;
+  /** 보낸 액션의 응답을 기다리는 중 */
+  pending: boolean;
   act: (action: unknown) => Promise<void>;
   seatMenu: (placed: PlacedSeat) => React.ReactNode | undefined;
   isHostSeat: (placed: PlacedSeat) => boolean;
@@ -64,10 +66,16 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
   const placed = placeSeats(snap);
   const mySeat = snap.me.seatIndex === null ? null : room.seats[snap.me.seatIndex] ?? null;
 
+  const [pending, setPending] = useState(false);
   const act = useCallback(
     async (action: unknown) => {
-      const r = await emit('game:action', { action });
-      if (!r.ok) pushNotice(r.error);
+      setPending(true);
+      try {
+        const r = await emit('game:action', { action });
+        if (!r.ok) pushNotice(r.error);
+      } finally {
+        setPending(false);
+      }
     },
     [emit, pushNotice],
   );
@@ -95,7 +103,7 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
       </>
     ) : undefined;
 
-  const ctx: TableContext = { snap, placed, now, clockOffset, remaining, myRemaining: myTurn ? remaining : null, act, seatMenu, isHostSeat };
+  const ctx: TableContext = { snap, placed, now, clockOffset, remaining, myRemaining: myTurn ? remaining : null, pending, act, seatMenu, isHostSeat };
   const view = game;
 
   return (
@@ -139,7 +147,9 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
               {room.spectatorNames.length > 0 && `관전 ${room.spectatorNames.length}명`}
             </div>
           ) : (
-            <MyInfo name={mySeat?.name ?? ''} stack={mySeat?.stack ?? null} />
+            <div className="flex items-center gap-2 pb-2 text-[13px] text-muted">
+              <MyLine name={mySeat?.name ?? ''} stack={mySeat?.stack ?? null} />
+            </div>
           )}
           <div className="ml-auto flex gap-2">
             {snap.me.isSpectator && room.seats.some((s) => s === null) && (

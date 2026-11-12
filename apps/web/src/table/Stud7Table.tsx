@@ -1,13 +1,14 @@
 import { STUD7_ACTION_LABELS, evaluateHand, type Card, type Stud7ActionType, type Stud7View } from '@card-game/game-core';
+import { useEffect, useState, type ReactNode } from 'react';
 import { won } from '../lib/types.js';
-import { PlayingCard } from '../components/PlayingCard.js';
+import { PlayingCard, cardName } from '../components/PlayingCard.js';
 import type { TableContext } from '../screens/TableScreen.js';
-import { ActButton, BetChips, BottomBand, Decision, MyInfo, NextHandBar, Payout, Pot, SeatPlate } from './common.js';
+import { ActButton, BetChips, BottomBand, Decision, MY_CHIPS, MyArea, MyLine, NextHandBar, Payout, Pot, SeatPlate } from './common.js';
 import { ResultBanner, type ResultLine } from './ResultBanner.js';
 
 const DECK = { x: 422, y: 190 };
-/** 숨긴 카드 자리: 처음 두 장과 마지막 7번째 카드 (엔진 규칙과 같음) */
-const isHiddenIndex = (i: number) => i < 2 || i === 6;
+/** 마지막 7번째 카드 자리 (히든 카드) */
+const HIDDEN_LAST = 6;
 const ORDER: Stud7ActionType[] = ['die', 'check', 'call', 'bbing', 'ddadang', 'quarter', 'half', 'full'];
 
 export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }) {
@@ -16,22 +17,60 @@ export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }
   const byId = new Map(view.players.map((p) => [p.id, p]));
   const me = view.myId ? (byId.get(view.myId) ?? null) : null;
   const finished = view.phase === 'finished';
+  const choosing = view.phase === 'choose';
   const turnSecs = snap.room.turnSeconds;
   const toAct = view.toActId ? byId.get(view.toActId) : null;
+  const myTurn = myRemaining !== null && view.legalActions.length > 0;
+
+  // 공개할 카드 고르기: 먼저 카드를 누르고, 버튼으로 확정한다
+  const [pick, setPick] = useState<number | null>(null);
+  // 히든 카드(7번째)는 눌러야 펼쳐 본다. 판이 바뀌면 다시 덮는다
+  const [peeked, setPeeked] = useState(false);
+  useEffect(() => {
+    setPick(null);
+    setPeeked(false);
+  }, [handKey]);
 
   const legal = view.legalActions;
   const call = legal.find((a) => a.type === 'call');
-  const sentence = finished
-    ? '판이 끝났습니다'
-    : myRemaining !== null
-      ? call
-        ? <>콜 <strong className="text-[18px] text-ivory">{won(call.amount)}</strong> 하면 계속</>
-        : '베팅을 골라 주세요'
-      : toAct
-        ? `${toAct.name} 님 차례입니다`
-        : '';
+  const myCardsAll = me?.cards ?? [];
+  const hiddenLastUnseen = !finished && !peeked && myCardsAll.length > HIDDEN_LAST;
+  // 아직 안 본 히든 카드는 족보 계산에도 넣지 않는다 (안 본 카드가 족보 이름으로 새지 않도록)
+  const knownCards = myCardsAll.filter((c, i): c is Card => c !== null && !(hiddenLastUnseen && i === HIDDEN_LAST));
 
-  const myCards = (me?.cards ?? []).filter((c): c is Card => c !== null);
+  const sentence = finished ? (
+    '판이 끝났습니다'
+  ) : choosing ? (
+    myTurn ? (
+      pick === null ? '펼쳐 보일 카드 1장을 눌러 고르세요' : `${cardName(myCardsAll[pick] ?? null)}을(를) 펼칠까요?`
+    ) : me?.openChosen ? (
+      '다른 사람이 고르는 중입니다. 모두 고르면 한꺼번에 펼쳐집니다'
+    ) : (
+      `${toAct?.name ?? ''} 님이 펼칠 카드를 고르는 중입니다`
+    )
+  ) : myTurn ? (
+    call ? (
+      <>
+        콜 <strong className="text-[18px] text-ivory">{won(call.amount)}</strong> 하면 계속
+      </>
+    ) : (
+      '베팅을 골라 주세요'
+    )
+  ) : toAct ? (
+    `${toAct.name} 님 차례입니다`
+  ) : (
+    ''
+  );
+
+  /** 내 카드 한 장의 표시 상태 */
+  const myCardRole = (i: number): 'pickable' | 'hidden' | 'open' | 'chosen' | 'peek' => {
+    if (choosing) {
+      if (myTurn) return 'pickable';
+      return me?.openChosen && i === 2 ? 'chosen' : 'hidden';
+    }
+    if (i === HIDDEN_LAST && hiddenLastUnseen) return 'peek';
+    return i < 2 || i === HIDDEN_LAST ? 'hidden' : 'open';
+  };
 
   return (
     <>
@@ -44,7 +83,12 @@ export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }
               placed={p}
               isTurn={isTurn}
               remainingRatio={isTurn && remaining !== null ? remaining / (turnSecs * 1000) : null}
-              status={{ folded: pv?.folded, allIn: pv?.allIn, sittingOut: Boolean(p.seat && !pv) , winner: finished && (view.result?.chipDeltas[p.seat?.id ?? ''] ?? 0) > 0 }}
+              status={{
+                folded: pv?.folded,
+                allIn: pv?.allIn,
+                sittingOut: Boolean(p.seat && !pv),
+                winner: finished && (view.result?.chipDeltas[p.seat?.id ?? ''] ?? 0) > 0,
+              }}
               isHost={ctx.isHostSeat(p)}
               menu={ctx.seatMenu(p)}
             >
@@ -80,6 +124,11 @@ export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }
                       ) : null,
                     )}
                   </div>
+                  {choosing && (
+                    <span className="mb-0.5 rounded bg-lacquer-3 px-1.5 text-[12px] font-bold whitespace-nowrap text-ivory-dim">
+                      {pv.openChosen ? '골랐음' : '고르는 중'}
+                    </span>
+                  )}
                 </div>
               )}
             </SeatPlate>
@@ -95,43 +144,59 @@ export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }
           </div>
         );
       })}
-      {me && <BetChips x={422} y={300} amount={me.roundBet} k={`${handKey}-${view.street}-me`} />}
+      {me && <BetChips x={MY_CHIPS.x} y={MY_CHIPS.y + 40} at={MY_CHIPS} amount={me.roundBet} k={`${handKey}-${view.street}-me`} />}
 
-      <Pot amount={view.pot} top={150} paid={finished} />
-      <p className="absolute inset-x-0 top-[202px] text-center text-[12px] text-muted">
-        {finished ? '' : `${view.street}번째 카드 베팅 · 앤티 ${won(view.ante)}`}
+      <Pot amount={view.pot} top={136} paid={finished} />
+      <p className="absolute inset-x-0 top-[204px] text-center text-[13px] text-ivory-dim">
+        {finished ? '' : choosing ? '처음 3장 중 펼칠 카드를 고르는 중' : `${view.street}번째 카드 베팅 · 앤티 ${won(view.ante)}`}
       </p>
 
       {finished && view.result && <Payout deltas={view.result.chipDeltas} placed={placed} myId={view.myId} k={`${snap.room.handNo}`} />}
-      {finished && view.result && <ResultBanner top={198} lines={stud7Lines(view)} myDelta={view.myId ? view.result.chipDeltas[view.myId] : undefined} />}
+      {finished && view.result && <ResultBanner top={190} lines={stud7Lines(view)} myDelta={view.myId ? view.result.chipDeltas[view.myId] : undefined} />}
 
       {!snap.me.isSpectator && (
         <BottomBand>
-          <div className={`flex ${(me?.cards.length ?? 0) > 5 ? '-space-x-4' : '-space-x-1'}`} aria-label="내 카드">
-            {(me?.cards ?? []).map((c, i) => (
-              <PlayingCard
-                key={`${handKey}-me-${i}`}
-                card={c}
-                size="md"
-                dim={me?.folded}
-                hiddenMark={isHiddenIndex(i)}
-                from={{ x: DECK.x - 40 - i * 26, y: DECK.y - 300 }}
-                delay={i < 3 ? 0.1 + i * 0.3 : 0.1}
+          <MyArea
+            info={
+              <MyLine
+                name={me?.name ?? ''}
+                stack={me?.stack ?? null}
+                note={me ? (me.folded ? '다이했습니다' : knownCards.length ? evaluateHand(knownCards).name : undefined) : '다음 판부터 참여합니다'}
               />
-            ))}
-          </div>
-          <MyInfo
-            name={me?.name ?? ''}
-            stack={me?.stack ?? null}
-            line={me ? (me.folded ? '다이했습니다' : myCards.length ? evaluateHand(myCards).name : '') : '다음 판부터 참여합니다'}
-          />
+            }
+          >
+            <MyStud7Cards
+              cards={myCardsAll}
+              handKey={handKey}
+              folded={Boolean(me?.folded)}
+              role={myCardRole}
+              pick={pick}
+              onPick={(i) => setPick(i)}
+              onPeek={() => setPeeked(true)}
+            />
+          </MyArea>
           {finished ? (
             <div className="ml-auto pb-3">
               <NextHandBar nextHandAt={snap.nextHandAt} clockOffset={ctx.clockOffset} now={ctx.now} />
             </div>
+          ) : choosing ? (
+            <Decision sentence={sentence} remaining={myRemaining} total={turnSecs} busy={ctx.pending}>
+              <ActButton
+                wide
+                primary={myTurn && pick !== null}
+                disabled={!myTurn || pick === null}
+                onClick={() => {
+                  if (pick === null) return;
+                  setPick(null);
+                  void act({ type: 'open', cardIndex: pick });
+                }}
+              >
+                이 카드 펼치기
+              </ActButton>
+            </Decision>
           ) : (
-            <Decision sentence={sentence} remaining={myRemaining} total={turnSecs}>
-              {(myRemaining !== null ? ORDER.filter((t) => legal.some((a) => a.type === t)) : ['die', 'call', 'half'] as Stud7ActionType[]).map((t) => {
+            <Decision sentence={sentence} remaining={myRemaining} total={turnSecs} busy={ctx.pending}>
+              {(myTurn ? ORDER.filter((t) => legal.some((a) => a.type === t)) : (['die', 'call', 'half'] as Stud7ActionType[])).map((t) => {
                 const a = legal.find((x) => x.type === t);
                 return (
                   <ActButton
@@ -151,6 +216,109 @@ export function Stud7Table({ ctx, view }: { ctx: TableContext; view: Stud7View }
         </BottomBand>
       )}
     </>
+  );
+}
+
+/**
+ * 내 카드. 숨긴 카드(처음 2장·7번째)와 펼친 카드를 두 묶음으로 나눠 보여 준다.
+ * - 고르기 단계: 3장 중 하나를 눌러 고른다
+ * - 7번째 히든 카드: 뒷면으로 받아 눌러야 펼쳐진다
+ */
+function MyStud7Cards({
+  cards,
+  handKey,
+  folded,
+  role,
+  pick,
+  onPick,
+  onPeek,
+}: {
+  cards: Array<Card | null>;
+  handKey: number;
+  folded: boolean;
+  role: (i: number) => 'pickable' | 'hidden' | 'open' | 'chosen' | 'peek';
+  pick: number | null;
+  onPick: (i: number) => void;
+  onPeek: () => void;
+}) {
+  const indexed = cards.map((c, i) => ({ c, i, r: role(i) }));
+  const choosing = indexed.some((x) => x.r === 'pickable' || x.r === 'chosen');
+  const from = (i: number) => ({ x: DECK.x - 60 - i * 40, y: DECK.y - 320 });
+  const delay = (i: number) => (i < 3 ? 0.1 + i * 0.3 : 0.1);
+
+  if (choosing || cards.length <= 3) {
+    return (
+      <div className="flex gap-1.5" aria-label="내 카드">
+        {indexed.map(({ c, i, r }) => (
+          <div key={`${handKey}-me-${i}`} className="relative">
+            <PlayingCard
+              card={c}
+              size="lg"
+              selected={pick === i}
+              onClick={r === 'pickable' ? () => onPick(i) : undefined}
+              label={r === 'pickable' ? `${cardName(c)} 펼치기로 고르기` : undefined}
+              from={from(i)}
+              delay={delay(i)}
+            />
+            {r === 'chosen' && <CardTag>펼칠 카드</CardTag>}
+            {r === 'pickable' && pick === i && <CardTag>펼칠 카드</CardTag>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const hidden = indexed.filter((x) => x.r === 'hidden' || x.r === 'peek');
+  const open = indexed.filter((x) => x.r === 'open');
+  return (
+    <div className={`flex items-end gap-3 ${folded ? 'opacity-50' : ''}`} aria-label="내 카드">
+      <CardGroup label="숨긴 카드">
+        <div className="flex -space-x-6">
+          {hidden.map(({ c, i, r }) =>
+            r === 'peek' ? (
+              <div key={`${handKey}-me-${i}-peek`} className="relative">
+                <PlayingCard card={null} size="lg" onClick={onPeek} label="히든 카드 펼쳐 보기" from={from(i)} delay={0.1} />
+                <span className="pointer-events-none absolute inset-x-1 top-1/2 -translate-y-1/2 rounded bg-ink/85 py-1 text-center text-[12px] leading-tight font-bold text-gold">
+                  눌러서
+                  <br />
+                  확인
+                </span>
+              </div>
+            ) : (
+              <PlayingCard key={`${handKey}-me-${i}`} card={c} size="lg" from={from(i)} delay={delay(i)} />
+            ),
+          )}
+        </div>
+      </CardGroup>
+      {open.length > 0 && (
+        <CardGroup label="펼친 카드">
+          <div className="flex -space-x-5">
+            {open.map(({ c, i }) => (
+              <PlayingCard key={`${handKey}-me-${i}`} card={c} size="lg" from={from(i)} delay={delay(i)} />
+            ))}
+          </div>
+        </CardGroup>
+      )}
+    </div>
+  );
+}
+
+/** 카드 묶음 이름은 세로로 옆에 써서 띠 높이를 아낀다 */
+function CardGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-end gap-1">
+      <span className="pb-1 text-[12px] leading-none font-bold tracking-[0.15em] text-ivory-dim [writing-mode:vertical-rl]">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** 카드 아래쪽에 겹쳐 다는 작은 표시 */
+function CardTag({ children }: { children: ReactNode }) {
+  return (
+    <span className="pointer-events-none absolute inset-x-1 bottom-1 rounded bg-gold py-0.5 text-center text-[12px] leading-tight font-bold whitespace-nowrap text-ink">
+      {children}
+    </span>
   );
 }
 

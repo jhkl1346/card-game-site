@@ -117,13 +117,17 @@ function Stud7Rules({ rules }: { rules: Stud7Rules }) {
   return (
     <>
       <p className="mb-3">
-        모두 앤티를 낸 뒤 숨긴 카드 2장과 펼친 카드 1장을 받습니다. 이후 4·5·6번째 카드는 펼쳐서, 마지막 7번째 카드는 숨겨서 받으며 카드를 받을 때마다 베팅합니다. 끝까지 남은 사람 중 족보가 가장 높은 사람이 판돈을 가져갑니다.
+        {rules.chooseOpenCard
+          ? '모두 앤티를 낸 뒤 카드 3장을 뒷면으로 받고, 그중 1장을 골라 펼칩니다(모두 고르면 한꺼번에 펼쳐짐). '
+          : '모두 앤티를 낸 뒤 숨긴 카드 2장과 펼친 카드 1장을 받습니다. '}
+        이후 4·5·6번째 카드는 펼쳐서, 마지막 7번째 히든 카드는 숨겨서 받으며(눌러서 확인) 카드를 받을 때마다 베팅합니다. 끝까지 남은 사람 중 족보가 가장 높은 사람이 판돈을 가져갑니다.
       </p>
       <p className="mb-3 text-sm text-muted">
         베팅: 삥(첫 베팅, 앤티만큼), 따당(콜하고 직전 베팅 증가분만큼 더), 쿼터·하프·풀(콜하고 판돈의 1/4·1/2·전부만큼 더), 콜, 체크, 다이.
       </p>
       <h3 className="mb-1 font-serif font-bold text-gold">이 방에 적용된 규칙 (Stud7Rules)</h3>
       <dl className="rounded-lg bg-lacquer px-3">
+        <Row k="펼칠 카드" v={rules.chooseOpenCard ? '처음 3장 중 직접 고름' : '3번째 카드가 자동으로 펼쳐짐'} />
         <Row k="첫 라운드 시작" v={rules.firstRoundStarter === 'lowestOpenCard' ? '펼친 카드가 가장 낮은 사람' : '펼친 카드가 가장 높은 사람'} />
         <Row k="이후 라운드 시작" v="펼친 카드의 족보가 가장 높은 사람" />
         <Row k="무늬 순서" v={`${suits} (펼친 카드 비교 때만)`} />

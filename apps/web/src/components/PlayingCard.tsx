@@ -55,6 +55,8 @@ interface Props {
   selected?: boolean;
   dim?: boolean;
   onClick?: () => void;
+  /** 눌렀다 안 눌렀다 바뀌는 카드는 true로 둔다. 태그가 바뀌어 다시 그려지며 날아오는 애니메이션이 반복되는 것을 막는다 */
+  asButton?: boolean;
   /** 처음 나타날 때 날아오는 방향 (덱 위치 기준 px) */
   from?: { x: number; y: number };
   delay?: number;
@@ -72,15 +74,17 @@ export function cardName(card: HulaCard | null): string {
 }
 
 /** 직접 그린 카드 한 장. 앞면이 처음 보이면 뒤집히는 애니메이션을 한다 */
-export function PlayingCard({ card, size = 'md', className = '', hiddenMark, selected, dim, onClick, from, delay = 0, label }: Props) {
+export function PlayingCard({ card, size = 'md', className = '', hiddenMark, selected, dim, onClick, asButton, from, delay = 0, label }: Props) {
   const s = SIZES[size];
   const faceKey = card ? (isJoker(card) ? `JK${card.joker}` : `${card.rank}${card.suit}`) : 'back';
   const initial = from ? { x: from.x, y: from.y, opacity: 0, rotate: -8 } : { opacity: 0, y: -6 };
-  const Tag = onClick ? motion.button : motion.div;
+  const isButton = Boolean(onClick) || Boolean(asButton);
+  const Tag = isButton ? motion.button : motion.div;
 
   return (
     <Tag
-      type={onClick ? 'button' : undefined}
+      type={isButton ? 'button' : undefined}
+      disabled={isButton && !onClick ? true : undefined}
       onClick={onClick}
       aria-label={label ?? cardName(card)}
       aria-pressed={onClick ? Boolean(selected) : undefined}

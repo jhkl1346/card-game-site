@@ -82,6 +82,23 @@ function pick(legal: readonly Stud7LegalAction[], preferences: readonly Stud7Act
 }
 
 /**
+ * 처음 3장 중 공개할 카드 고르기. 사람처럼 좋은 카드는 숨긴다.
+ * - 페어가 있으면 짝이 아닌 카드를 공개 (페어를 숨김)
+ * - 트리플이면 아무거나 (어차피 숨겨진 2장이 같음)
+ * - 그 외에는 가장 낮은 카드를 공개하고, 가끔은 높은 카드를 보여 강한 척한다
+ */
+export function chooseStud7OpenCard(cards: readonly Card[], random: BotRandom = Math.random, config: BotConfig = BOT_CONFIG): number {
+  if (random() < config.mistakeRate) return Math.floor(random() * 3);
+  const ranks = cards.map((c) => c.rank);
+  const counts = new Map<number, number>();
+  for (const r of ranks) counts.set(r, (counts.get(r) ?? 0) + 1);
+  const pairRank = [...counts].find(([, n]) => n === 2)?.[0];
+  if (pairRank !== undefined) return ranks.findIndex((r) => r !== pairRank);
+  const order = [0, 1, 2].sort((a, b) => ranks[a]! - ranks[b]!);
+  return random() < config.bluffRate * 1.5 ? order[2]! : order[0]!;
+}
+
+/**
  * 7포커 봇의 액션 결정. 반드시 getLegalActions 결과(view.legalActions) 안에서만 고른다.
  * 입력은 봇 자신의 시야(view)뿐이므로 상대 비공개 카드나 덱을 볼 방법이 없다.
  */
@@ -93,6 +110,11 @@ export function decideStud7Action(
   const legal = view.legalActions;
   if (legal.length === 0) throw new Error('봇이 할 수 있는 액션이 없습니다');
   const me = view.players.find((p) => p.id === view.myId)!;
+
+  if (view.phase === 'choose') {
+    const mine = me.cards.filter((c): c is Card => c !== null);
+    return { type: 'open', cardIndex: chooseStud7OpenCard(mine, random, config) };
+  }
 
   const strength = estimateStud7Strength(view);
   const call = legal.find((a) => a.type === 'call');

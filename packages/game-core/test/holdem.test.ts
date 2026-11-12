@@ -351,3 +351,24 @@ describe('검증과 불변성', () => {
     }
   });
 });
+describe('카드 분배 공정성', () => {
+  it('어느 자리든 페어를 받을 확률이 같다 (약 5.9%)', () => {
+    // 실제 서버와 같은 crypto.randomInt 셔플로 6인 판을 많이 돌린다
+    const hands = 30_000;
+    const pairs = Array.from({ length: 6 }, () => 0);
+    const aces = Array.from({ length: 6 }, () => 0);
+    for (let g = 0; g < hands; g++) {
+      const s = createHoldem(players(6), { smallBlind: 50, bigBlind: 100, buttonIndex: g % 6, randomInt });
+      s.players.forEach((p, i) => {
+        if (p.hole[0]!.rank === p.hole[1]!.rank) pairs[i]!++;
+        if (p.hole.some((c) => c.rank === 14)) aces[i]!++;
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      // 페어 기대 1/17(5.88%), 표준편차 약 0.14%p → ±0.8%p는 사실상 실패하지 않는 범위
+      expect(Math.abs(pairs[i]! / hands - 1 / 17)).toBeLessThan(0.008);
+      // A가 한 장 이상 기대 14.9%
+      expect(Math.abs(aces[i]! / hands - 0.1493)).toBeLessThan(0.012);
+    }
+  });
+});

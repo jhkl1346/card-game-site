@@ -2,8 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "types": ["node"],
-    "customConditions": ["source"]
+    "types": [
+      "node"
+    ],
+    "customConditions": [
+      "source"
+    ]
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test",
+    "scripts"
+  ]
 }

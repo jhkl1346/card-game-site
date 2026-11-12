@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "sim:stud7": "tsx --conditions=source scripts/sim-stud7.ts"
   },
   "dependencies": {
     "@card-game/game-core": "workspace:*"

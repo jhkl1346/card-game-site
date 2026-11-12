@@ -387,7 +387,7 @@ export function BottomBand({ children }: { children: ReactNode }) {
 export function MyArea({ info, children, extra }: { info: ReactNode; children: ReactNode; extra?: ReactNode }) {
   return (
     <div className="flex min-w-0 shrink-0 flex-col gap-1">
-      <div className="pointer-events-none relative z-10 flex items-center gap-2 text-[13px] text-muted">{info}</div>
+      <div className="pointer-events-none relative z-10 flex w-fit items-center gap-2 rounded-md bg-ink/75 pr-2 text-[13px] text-muted">{info}</div>
       <div className="flex items-end gap-2.5">
         {children}
         {extra}

@@ -163,13 +163,16 @@ function HulaRulesText({ rules }: { rules: HulaRules }) {
       <p className="mb-3">
         7장씩 받고, 차례마다 덱이나 버린 더미에서 1장을 가져온 뒤 등록·붙이기를 하고 1장을 버립니다. 같은 숫자 3~4장(세트)이나 같은 무늬로 이어진 3장 이상(런)을 등록할 수 있습니다. 손패를 먼저 모두 털면 이기고, 나머지 사람은 손에 남은 점수만큼 칩을 냅니다.
       </p>
+      <p className="mb-3">
+        조작: 덱이나 버린 카드를 눌러 가져옵니다. 손패를 눌러 고른 뒤 등록·버리기를 누르거나, 고른 채로 등록된 카드를 누르면 붙입니다. 손패를 끌어서 순서를 바꾸고, 버린 카드 위에 놓으면 버리고, 등록된 카드 위에 놓으면 붙입니다.
+      </p>
       <h3 className="mb-1 font-serif font-bold text-gold">이 방에 적용된 규칙 (HulaRules)</h3>
       <dl className="rounded-lg bg-lacquer px-3">
         <Row k="7 한 장 등록" v={rules.sevenAlone ? '가능' : '불가'} />
         <Row k="조커" v={rules.jokers === 0 ? '사용 안 함' : `${rules.jokers}장 (손에 남으면 ${rules.jokerPoints}점)`} />
         <Row k="J·Q·K 점수" v={rules.faceCardPoints === 'ten' ? '각 10점' : '11·12·13점'} />
         <Row k="런에서 A" v={rules.aceHighInRun ? 'A-2-3, Q-K-A 모두 가능' : 'A-2-3만 가능'} />
-        <Row k="남의 등록에 붙이기" v={rules.layOffToOthers ? '가능' : '불가'} />
+        <Row k="붙이기" v={`${rules.layOffRequiresMeld ? '내가 한 번 등록한 뒤부터' : '언제나'} · 남의 등록에 ${rules.layOffToOthers ? '가능' : '불가'}`} />
         <Row k="버린 카드 가져오기" v={rules.discardPickup === 'mustUse' ? '그 차례에 바로 등록·붙이기에 쓸 때만' : '자유'} />
         <Row k="스톱" v={rules.stopEnabled ? `손패 ${rules.stopMaxPoints}점 이하일 때 선언 (실패하면 ${rules.stopFailMultiplier}배)` : '사용 안 함'} />
         <Row k="훌라 (한 번에 모두 털기)" v={`정산 ${rules.hulaMultiplier}배`} />

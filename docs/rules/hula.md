@@ -52,6 +52,7 @@
 ### 3.2 한국식 특수 규칙
 - **7 단독 등록** (`sevenAlone: true`): 7은 한 장만으로도 멜드로 등록할 수 있습니다. 여기에 다른 7(세트)이나 같은 무늬의 6·8(런)을 붙일 수 있습니다.
 - **땡큐**(차례가 아닐 때 버린 카드 가져가기)는 넣지 않습니다.
+- **등록한 뒤에만 붙이기** (`layOffRequiresMeld: true`, 사용자 요청 2026-11-12): 자기 카드를 한 번이라도 등록해야 붙이기를 할 수 있습니다. 등록한 바로 그 턴부터 내 멜드와 남의 멜드 모두에 붙일 수 있습니다. 아직 등록하지 않았다면 버린 카드를 "붙이기용"으로 가져올 수도 없습니다.
 
 ### 3.3 스톱 (`stop`)
 - 내 차례에 카드를 가져오기 **전**, 손패 점수가 `stopMaxPoints`(기본 **10점**) 이하일 때만 선언할 수 있습니다.
@@ -73,6 +74,7 @@
 | `faceCardPoints` | `'ten'` (J/Q/K 각 10점, `'ranked'`는 11/12/13) |
 | `aceHighInRun` | `true` |
 | `layOffToOthers` | `true` |
+| `layOffRequiresMeld` | `true` |
 | `sevenAlone` | `true` |
 | `discardPickup` | `'mustUse'` |
 | `stopEnabled` / `stopMaxPoints` / `stopFailMultiplier` | `true` / `10` / `2` |

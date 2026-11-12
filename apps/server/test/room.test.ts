@@ -208,6 +208,21 @@ describe('나가기·접속 끊김·재접속', () => {
     }
   });
 
+  it('칩을 모두 잃으면 관전자로 방에 남고, 다시 빈자리에 앉을 수 있다', async () => {
+    // 점당 10칩, 바이인 최소(200) → 한 판만 크게 져도 칩이 바닥난다
+    const room = await manager.createSingle(alice, 'hula', { pointValue: 10, buyIn: 200 });
+    for (let i = 0; i < 120 && room.seatOf(alice.userId); i++) await tick(10_000);
+    expect(room.seatOf(alice.userId)).toBeNull();
+    expect(room.hasMember(alice.userId)).toBe(true);
+    expect(notices.some((n) => n.userId === alice.userId && n.message.startsWith('칩을 모두 잃어'))).toBe(true);
+    expect(leftUsers).not.toContain(alice.userId);
+    // 봇 한 자리를 비워 빈자리를 만든 뒤 다시 앉는다
+    const botIndex = room.seats.findIndex((s) => s?.isBot);
+    room.seats[botIndex] = null;
+    await manager.sit(alice);
+    expect(room.seatOf(alice.userId)).not.toBeNull();
+  });
+
   it('한 사람은 한 방에만 있을 수 있다', async () => {
     await manager.createSingle(alice, 'stud7');
     await expect(manager.createSingle(alice, 'hula')).rejects.toThrow('이미 다른 방에');

@@ -1,6 +1,6 @@
 import { hulaCardId, isJoker, parseHulaCard, rankLabel, type HulaCard, type HulaEndReason, type HulaLegalAction, type HulaView } from '@card-game/game-core';
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PlayingCard, cardName } from '../components/PlayingCard.js';
 import type { TableContext } from '../screens/TableScreen.js';
 import { ActButton, BottomBand, Decision, MyArea, MyLine, NextHandBar, Payout, SeatPlate, STAGE_H } from './common.js';
@@ -38,10 +38,12 @@ function shortCard(id: string): string {
   return isJoker(c) ? '조커' : `${SUIT_MARK[c.suit]}${rankLabel(c.rank)}`;
 }
 
-const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
-type MeldAction = Extract<HulaLegalAction, { type: 'meld' }>;
-type LayoffAction = Extract<HulaLegalAction, { type: 'layoff' }>;
-
+/**
+ * 훌라 테이블. 실제 카드를 다루듯 직접 판단하게 한다.
+ * - 덱·버린 카드를 눌러 가져온다 (못 가져오는 카드면 서버가 이유를 알려 준다)
+ * - 손패는 끌어서 순서를 바꾸고, 버린 카드 위에 놓으면 버리고, 등록된 카드 위에 놓으면 붙인다
+ * - 어떤 카드가 쓸모 있는지, 어디에 붙는지는 알려 주지 않는다
+ */
 export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) {
   const { snap, placed, remaining, myRemaining, act } = ctx;
   const handKey = snap.room.handNo;
@@ -50,11 +52,16 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
   const finished = view.phase === 'finished';
   const turnSecs = snap.room.turnSeconds;
   const myTurn = myRemaining !== null && view.legalActions.length > 0;
+  const drawTurn = myTurn && view.phase === 'draw' && !ctx.pending;
+  const playTurn = myTurn && view.phase === 'play' && !ctx.pending;
   const [selected, setSelected] = useState<string[]>([]);
-  const [sort, setSort] = useState<SortMode>('rank');
-  const [suggestIndex, setSuggestIndex] = useState(0);
+  /** 내가 늘어놓은 손패 순서 (카드 id). 새로 들어온 카드는 오른쪽 끝에 붙는다 */
+  const [order, setOrder] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  /** 끌어다 놓은 직후 따라오는 클릭은 카드 고르기로 치지 않는다 */
+  const lastDragEnd = useRef(0);
 
-  // 손패가 바뀌면 사라진 카드는 선택에서 빼고, 새로 들어온 카드는 "새 카드"로 잠깐 표시한다
+  // 손패가 바뀌면 사라진 카드는 선택·순서에서 빼고, 새로 들어온 카드는 "새 카드"로 잠깐 표시한다
   const handIds = view.myHand.map(hulaCardId);
   const handSig = handIds.join();
   const prevHand = useRef<string[] | null>(null);
@@ -65,39 +72,61 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
     setFresh(prev && added.length === 1 ? added[0]! : null);
     prevHand.current = handIds;
     setSelected((sel) => sel.filter((id) => handIds.includes(id)));
-    setSuggestIndex(0);
+    setOrder((o) => {
+      const kept = o.filter((id) => handIds.includes(id));
+      // 새 판이면 처음 한 번만 숫자순으로 늘어놓아 준다
+      if (kept.length === 0) return sortHand(view.myHand, 'rank').map(hulaCardId);
+      return [...kept, ...handIds.filter((id) => !kept.includes(id))];
+    });
     // 손패 구성(handSig)이 바뀔 때만 다시 계산한다
   }, [handSig]);
 
-  // 내 차례가 끝나면(시간 초과 포함) 고른 카드 표시를 지운다
-  const canSelect = myTurn && view.phase === 'play';
+  // 내 차례가 끝나면(시간 초과 포함) 고른 카드를 내려놓는다
+  const myPlay = myTurn && view.phase === 'play';
   useEffect(() => {
-    if (!canSelect) setSelected([]);
-  }, [canSelect]);
+    if (!myPlay) setSelected([]);
+  }, [myPlay]);
 
-  const hand = useMemo(() => sortHand(view.myHand, sort), [view.myHand, sort]);
-  const legal = view.legalActions;
-  const has = (t: HulaLegalAction['type']) => legal.some((a) => a.type === t);
-  const meldOptions = legal.filter((a): a is MeldAction => a.type === 'meld').sort((a, b) => b.cards.length - a.cards.length);
-  const layoffOptions = legal.filter((a): a is LayoffAction => a.type === 'layoff');
-  const meldMatch = meldOptions.find((a) => sameSet(a.cards, selected));
-  const discardOk = selected.length === 1 && legal.some((a) => a.type === 'discard' && a.card === selected[0]);
-  const layoffTargets = selected.length === 1 ? layoffOptions.filter((a) => a.cards[0] === selected[0]) : [];
-  const targetIds = new Set(layoffTargets.map((a) => a.meldId));
-  // 등록·붙이기에 쓸 수 있는 카드에는 작은 점을 찍어 알려 준다
-  const usable = new Set([...meldOptions.flatMap((a) => a.cards), ...layoffOptions.flatMap((a) => a.cards)]);
+  const cardById = new Map(view.myHand.map((c) => [hulaCardId(c), c]));
+  const orderedIds = [...order.filter((id) => cardById.has(id)), ...handIds.filter((id) => !order.includes(id))];
 
-  const toggle = (id: string) => setSelected((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  const has = (t: HulaLegalAction['type']) => view.legalActions.some((a) => a.type === t);
   const send = (action: unknown) => {
     setSelected([]);
     void act(action);
   };
+  const tapCard = (id: string) => {
+    if (Date.now() - lastDragEnd.current < 300) return;
+    setSelected((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  };
+  const sortBy = (mode: SortMode) => setOrder(sortHand(view.myHand, mode).map(hulaCardId));
+  const layoff = (meldId: number, cards: string[]) => send({ type: 'layoff', meldId, cards });
+
+  /** 손패 카드를 끌어다 놓은 곳: 다른 손패(순서 바꾸기), 버린 카드(버리기), 등록된 카드(붙이기) */
+  const dropAt = (id: string, x: number, y: number) => {
+    const hit = document
+      .elementsFromPoint(x, y)
+      .map((el) => el.closest<HTMLElement>('[data-drop]'))
+      .find((el) => el && el.dataset.drop !== `hand:${id}`);
+    const target = hit?.dataset.drop;
+    if (!target) return;
+    if (target.startsWith('hand:')) {
+      const to = target.slice(5);
+      const ids = orderedIds.filter((x) => x !== id);
+      const at = ids.indexOf(to);
+      if (at < 0) return;
+      const movingRight = orderedIds.indexOf(id) < orderedIds.indexOf(to);
+      ids.splice(movingRight ? at + 1 : at, 0, id);
+      setOrder(ids);
+      return;
+    }
+    if (!playTurn) return;
+    if (target === 'discard') send({ type: 'discard', card: id });
+    else if (target.startsWith('meld:')) layoff(Number(target.slice(5)), selected.includes(id) ? selected : [id]);
+  };
 
   const turnPlayer = view.turnId ? byId.get(view.turnId) : null;
   const top = view.discardPile[view.discardPile.length - 1] ?? null;
-  const topId = top ? hulaCardId(top) : null;
-  const canDrawDeck = myTurn && has('drawDeck');
-  const canDrawDiscard = myTurn && has('drawDiscard');
 
   // 마지막으로 버린 사람 자리에서 버린 카드가 날아오게 한다
   const lastDiscard = [...view.log].reverse().find((e) => e.action === 'discard');
@@ -108,42 +137,19 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
     return p ? { x: p.x - DISCARD.x - 31, y: p.y - DISCARD.y } : undefined;
   })();
 
-  const step = view.phase === 'draw' ? 1 : 2;
   const sentence = finished
     ? '판이 끝났습니다'
     : myTurn
       ? view.phase === 'draw'
-        ? '① 덱이나 버린 카드에서 한 장 가져오세요'
+        ? '내 차례 · 덱이나 버린 카드를 집으세요'
         : view.mustUse
-          ? `② 가져온 ${shortCard(view.mustUse)}을(를) 등록·붙이기에 쓰세요`
+          ? `가져온 ${shortCard(view.mustUse)}을(를) 이번 차례에 써야 합니다`
           : selected.length === 0
-            ? meldOptions.length || layoffOptions.length
-              ? '② 등록·붙이기 또는 ③ 버릴 카드 고르기'
-              : '③ 버릴 카드 1장을 눌러 고르세요'
-            : layoffTargets.length > 1
-              ? '붙일 자리를 위에서 눌러 주세요'
-              : `${selected.length}장 골랐습니다`
+            ? '등록·붙이기를 하고 1장을 버리세요'
+            : `${selected.length}장 고름 · 등록된 카드를 누르면 붙입니다`
       : turnPlayer
         ? `${turnPlayer.name} 님 차례입니다`
         : '';
-
-  /** 등록 버튼: 고른 카드가 맞으면 등록, 아니면 등록할 수 있는 조합을 골라 준다 (누를 때마다 다음 조합) */
-  const onMeld = () => {
-    if (meldMatch) return send(meldMatch);
-    const option = meldOptions[suggestIndex % meldOptions.length];
-    if (!option) return;
-    setSelected(option.cards);
-    setSuggestIndex((i) => i + 1);
-  };
-  /** 붙이기 버튼: 자리가 하나면 바로 붙이고, 고른 카드가 없으면 붙일 수 있는 카드를 골라 준다 */
-  const onLayoff = () => {
-    if (layoffTargets.length === 1) return send(layoffTargets[0]);
-    if (layoffTargets.length > 1) return;
-    const first = layoffOptions[suggestIndex % Math.max(1, layoffOptions.length)];
-    if (!first) return;
-    setSelected(first.cards);
-    setSuggestIndex((i) => i + 1);
-  };
 
   return (
     <>
@@ -187,69 +193,73 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
         );
       })}
 
-      {/* ① 가져오는 곳: 덱과 버린 카드 (내 차례면 금색으로 빛나고 눌러서 가져온다) */}
+      {/* 덱: 눌러서 한 장 가져온다 */}
       <button
         type="button"
-        disabled={!canDrawDeck || ctx.pending}
+        disabled={!drawTurn}
         onClick={() => send({ type: 'drawDeck' })}
-        className={`absolute h-[86px] w-[62px] rounded-[7px] ${canDrawDeck ? 'ring-[3px] ring-gold ring-offset-2 ring-offset-lacquer' : ''}`}
+        className="group absolute h-[86px] w-[62px] rounded-[7px] enabled:cursor-pointer"
         style={{ left: DECK.x, top: DECK.y }}
         aria-label={`덱에서 가져오기 (남은 ${view.deckCount}장)`}
       >
         <span className="lacquer-back absolute top-[3px] left-[3px] h-full w-full rounded-[7px] border-2 border-ivory/70" />
-        <span className="lacquer-back absolute inset-0 rounded-[7px] border-[2.5px] border-ivory shadow-[0_3px_6px_rgb(0_0_0/0.5)]" />
-        {canDrawDeck && <PulseHint />}
+        <span className="lacquer-back absolute inset-0 rounded-[7px] border-[2.5px] border-ivory shadow-[0_3px_6px_rgb(0_0_0/0.5)] transition-transform duration-150 group-enabled:group-hover:-translate-y-1" />
       </button>
       <PileLabel x={DECK.x} title="덱" sub={`${view.deckCount}장`} />
 
-      <div className="absolute" style={{ left: DISCARD.x, top: DISCARD.y }}>
+      {/* 버린 카드: 눌러서 가져오고, 손패를 끌어다 놓으면 버린다 */}
+      <div
+        className={`absolute rounded-[9px] ${dragId && playTurn ? 'outline-2 outline-offset-4 outline-gold/60 outline-dashed' : ''}`}
+        style={{ left: DISCARD.x, top: DISCARD.y }}
+        data-drop="discard"
+      >
         {top ? (
-            <PlayingCard
-              key={`${handKey}-d${view.discardPile.length}`}
-              card={top}
-              size="lg"
-              from={discardFrom}
-              onClick={canDrawDiscard && !ctx.pending ? () => send({ type: 'drawDiscard' }) : undefined}
-              className={canDrawDiscard ? 'rounded-[7px] ring-[3px] ring-gold ring-offset-2 ring-offset-lacquer' : ''}
-              label={`버린 카드 ${cardName(top)}${canDrawDiscard ? ' 가져오기' : ''}`}
-            />
-          ) : (
-            <div className="h-[86px] w-[62px] rounded-[7px] border border-dashed border-gold/25" />
-          )}
+          <PlayingCard
+            key={`${handKey}-d${view.discardPile.length}`}
+            card={top}
+            size="lg"
+            from={discardFrom}
+            asButton
+            onClick={drawTurn ? () => send({ type: 'drawDiscard' }) : undefined}
+            className={drawTurn ? 'transition-transform duration-150 hover:-translate-y-1' : ''}
+            label={`버린 카드 ${cardName(top)}${drawTurn ? ' 가져오기' : ''}`}
+          />
+        ) : (
+          <div className="h-[86px] w-[62px] rounded-[7px] border border-dashed border-gold/25" />
+        )}
       </div>
       <PileLabel x={DISCARD.x} title="버린 카드" sub={view.discardPile.length ? `${view.discardPile.length}장` : '없음'} />
 
-      {/* ② 등록된 카드 */}
+      {/* 등록된 카드: 고른 카드로 누르거나 손패를 끌어다 놓으면 붙인다 */}
       <div className="absolute flex flex-col" style={MELDS}>
-        <p className="mb-0.5 flex items-baseline gap-2 font-serif text-[13px] leading-[18px] tracking-[0.15em] text-gold">
-          등록된 카드
-          {targetIds.size > 1 && <span className="font-sans text-[12px] tracking-normal text-ivory">붙일 자리를 눌러 주세요</span>}
-        </p>
+        <p className="mb-0.5 font-serif text-[13px] leading-[18px] tracking-[0.15em] text-gold">등록된 카드</p>
         {view.melds.length === 0 ? (
           <p className="mt-6 text-center text-[13px] text-muted">아직 아무도 등록하지 않았습니다</p>
         ) : (
           <div className="flex min-h-0 flex-1 flex-wrap content-start gap-x-2.5 gap-y-1 overflow-y-auto pr-1">
             {view.melds.map((m) => {
-              const target = targetIds.has(m.id);
               const owner = m.owner === view.myId ? '나' : (byId.get(m.owner)?.name ?? '');
-              const action = layoffTargets.find((a) => a.meldId === m.id);
+              const canTap = playTurn && selected.length > 0;
               return (
                 <motion.button
                   key={m.id}
                   type="button"
                   layout
-                  disabled={!target || ctx.pending}
-                  onClick={() => action && send(action)}
-                  className={`flex flex-col items-start gap-0.5 rounded-lg px-1 pt-1 pb-0.5 ${target ? 'bg-gold/15 ring-2 ring-gold' : 'bg-ink/30'}`}
-                  aria-label={`${owner} 등록 ${m.cards.map((c) => cardName(c)).join(', ')}${target ? ', 여기에 붙이기' : ''}`}
+                  data-drop={`meld:${m.id}`}
+                  disabled={!canTap}
+                  onClick={() => layoff(m.id, selected)}
+                  className={`relative rounded-lg bg-ink/30 p-1 transition-colors ${
+                    (dragId || canTap) && playTurn ? 'outline-1 outline-gold/50 outline-dashed hover:bg-gold/15' : ''
+                  }`}
+                  aria-label={`${owner} 등록 ${m.cards.map((c) => cardName(c)).join(', ')}${canTap ? ', 여기에 붙이기' : ''}`}
                 >
                   <span className="flex -space-x-3">
                     {m.cards.map((c, i) => (
                       <PlayingCard key={`${m.id}-${i}`} card={c} size="sm" />
                     ))}
                   </span>
-                  <span className={`max-w-full truncate px-0.5 text-[12px] leading-none ${target ? 'font-bold text-gold' : 'text-ivory-dim'}`}>
-                    {target ? '여기에 붙이기' : owner}
+                  <span className="pointer-events-none absolute bottom-0.5 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded bg-ink/85 px-1.5 py-px text-[11px] leading-tight text-ivory">
+                    {owner}
                   </span>
                 </motion.button>
               );
@@ -266,49 +276,45 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
           <MyArea
             info={<MyLine name={me?.name ?? ''} stack={me?.stack ?? null} note={me ? `손패 ${view.myPoints}점` : '다음 판부터 참여합니다'} />}
             extra={
-              <button
-                type="button"
-                onClick={() => setSort((s) => (s === 'rank' ? 'suit' : 'rank'))}
-                className="mb-1 min-h-11 shrink-0 rounded-md border border-gold/30 px-2 text-[12px] leading-tight font-bold text-ivory-dim hover:text-ivory"
-              >
-                {sort === 'rank' ? (
-                  <>
-                    무늬순
-                    <br />
-                    정렬
-                  </>
-                ) : (
-                  <>
-                    숫자순
-                    <br />
-                    정렬
-                  </>
-                )}
-              </button>
+              <div className="mb-1 flex shrink-0 flex-col gap-1">
+                <SortButton onClick={() => sortBy('rank')}>숫자순</SortButton>
+                <SortButton onClick={() => sortBy('suit')}>무늬순</SortButton>
+              </div>
             }
           >
-            <div className="flex -space-x-3" aria-label="내 손패">
-              {hand.map((c, i) => {
-                const id = hulaCardId(c);
-                const canPick = myTurn && view.phase === 'play' && !ctx.pending;
+            <div className="flex -space-x-3" aria-label="내 손패 (끌어서 순서를 바꾸거나 버린 카드·등록된 카드 위에 놓을 수 있습니다)">
+              {orderedIds.map((id, i) => {
+                const c = cardById.get(id)!;
                 return (
-                  <div key={`${handKey}-${id}`} className="relative">
+                  <motion.div
+                    key={`${handKey}-${id}`}
+                    layout
+                    drag={Boolean(me)}
+                    dragSnapToOrigin
+                    dragMomentum={false}
+                    whileDrag={{ scale: 1.08, zIndex: 40 }}
+                    onDragStart={() => setDragId(id)}
+                    onDragEnd={(_e, info) => {
+                      lastDragEnd.current = Date.now();
+                      setDragId(null);
+                      dropAt(id, info.point.x - window.scrollX, info.point.y - window.scrollY);
+                    }}
+                    className="relative touch-none"
+                    data-drop={`hand:${id}`}
+                  >
                     <PlayingCard
                       card={c}
                       size="lg"
                       selected={selected.includes(id)}
                       asButton
-                      onClick={canPick ? () => toggle(id) : undefined}
+                      onClick={me ? () => tapCard(id) : undefined}
                       from={{ x: DECK.x - 14 - i * 50, y: DECK.y - 300 }}
                       delay={i * 0.06}
                     />
-                    {myTurn && view.phase === 'play' && usable.has(id) && (
-                      <span className="pointer-events-none absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-gold shadow-[0_0_0_2px_var(--color-ivory)]" aria-hidden />
-                    )}
                     {fresh === id && (
                       <span className="pointer-events-none absolute inset-x-1 bottom-1 rounded bg-gold py-0.5 text-center text-[12px] leading-tight font-bold text-ink">새 카드</span>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -319,46 +325,28 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
             </div>
           ) : (
             <Decision sentence={sentence} remaining={myRemaining} total={turnSecs} busy={ctx.pending}>
-              {step === 1 || !myTurn ? (
-                <>
-                  <ActButton wide primary={canDrawDeck} disabled={!canDrawDeck} onClick={() => send({ type: 'drawDeck' })} sub={`${view.deckCount}장 남음`}>
-                    덱에서
+              {view.phase === 'draw' || !myTurn ? (
+                has('stop') && (
+                  <ActButton onClick={() => send({ type: 'stop' })} sub={`${view.myPoints}점`}>
+                    스톱
                   </ActButton>
-                  <ActButton wide disabled={!canDrawDiscard} onClick={() => send({ type: 'drawDiscard' })} sub={topId ? shortCard(topId) : '없음'}>
-                    버린 카드
-                  </ActButton>
-                  {has('stop') && (
-                    <ActButton onClick={() => send({ type: 'stop' })} sub={`${view.myPoints}점`}>
-                      스톱
-                    </ActButton>
-                  )}
-                </>
+                )
               ) : (
                 <>
                   <ActButton
                     wide
-                    primary={Boolean(meldMatch)}
-                    disabled={meldOptions.length === 0}
-                    onClick={onMeld}
-                    sub={meldMatch ? `${selected.length}장 등록` : meldOptions.length ? `${meldOptions.length}가지 가능` : '없음'}
+                    primary={selected.length > 0}
+                    disabled={selected.length === 0}
+                    onClick={() => send({ type: 'meld', cards: selected })}
+                    sub={selected.length ? `${selected.length}장` : '카드 고르기'}
                   >
-                    {meldMatch ? '등록' : '등록 찾기'}
+                    등록
                   </ActButton>
                   <ActButton
                     wide
-                    primary={layoffTargets.length === 1}
-                    disabled={layoffOptions.length === 0 || layoffTargets.length > 1}
-                    onClick={onLayoff}
-                    sub={layoffTargets.length === 1 ? shortCard(layoffTargets[0]!.cards[0]!) : layoffOptions.length ? `${layoffOptions.length}가지 가능` : '없음'}
-                  >
-                    {layoffTargets.length ? '붙이기' : '붙일 카드'}
-                  </ActButton>
-                  <ActButton
-                    wide
-                    primary={discardOk && !meldMatch && layoffTargets.length === 0}
-                    disabled={!discardOk}
+                    disabled={selected.length !== 1}
                     onClick={() => send({ type: 'discard', card: selected[0] })}
-                    sub={discardOk ? shortCard(selected[0]!) : '1장 고르기'}
+                    sub={selected.length === 1 ? shortCard(selected[0]!) : '1장 고르기'}
                   >
                     버리기
                   </ActButton>
@@ -372,25 +360,24 @@ export function HulaTable({ ctx, view }: { ctx: TableContext; view: HulaView }) 
   );
 }
 
+function SortButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-[38px] rounded-md border border-gold/30 px-2 text-[12px] leading-tight font-bold text-ivory-dim hover:text-ivory"
+    >
+      {children}
+    </button>
+  );
+}
+
 function PileLabel({ x, title, sub }: { x: number; title: string; sub: string }) {
   return (
     <p className="absolute w-[62px] text-center leading-tight" style={{ left: x, top: DECK.y + 94 }}>
       <span className="block text-[13px] font-bold whitespace-nowrap text-ivory-dim">{title}</span>
       <span className="text-[12px] text-muted">{sub}</span>
     </p>
-  );
-}
-
-/** 지금 눌러야 하는 곳을 알려 주는 은은한 테두리 (동작 줄이기 설정이면 멈춤) */
-function PulseHint() {
-  return (
-    <motion.span
-      className="pointer-events-none absolute -inset-1 rounded-[9px] border-2 border-gold"
-      initial={{ opacity: 0.9 }}
-      animate={{ opacity: [0.9, 0.2, 0.9] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-      aria-hidden
-    />
   );
 }
 

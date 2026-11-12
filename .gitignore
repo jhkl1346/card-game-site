@@ -1,0 +1,41 @@
+# 의존성
+node_modules/
+.pnpm-store/
+
+# 빌드 결과물
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# 환경 변수 / 비밀 값 (절대 커밋 금지)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 로컬 DB 파일
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# 로그
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code 로컬 설정
+.claude/settings.local.json

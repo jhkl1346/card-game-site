@@ -9,5 +9,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // 개발 중에는 API 요청을 백엔드로 넘겨 같은 출처처럼 동작하게 한다 (세션 쿠키 SameSite=Lax 그대로 사용)
+    proxy: {
+      '/api': 'http://localhost:3001',
+      '/health': 'http://localhost:3001',
+    },
   },
 });

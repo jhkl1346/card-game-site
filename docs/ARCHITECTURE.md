@@ -71,22 +71,28 @@ interface GameEngine<State, Action, View, Options, Result> {
 
 상태는 불변 객체이고, `applyAction`은 검증에 실패하면 예외를 던지고 기존 상태를 바꾸지 않습니다. `getState(playerId)`는 상대 비공개 카드, 번 카드 내용, 남은 덱을 포함하지 않습니다(번 카드는 개수만, 남은 덱은 장수만).
 
-### 2.2 DB 스키마 (영구 데이터만)
+### 2.2 DB 스키마 (영구 데이터만, 5단계 확정)
+
+실제 정의는 `apps/server/src/db/schema.ts`, 마이그레이션 SQL은 `apps/server/drizzle/`에 있습니다.
 
 | 테이블 | 컬럼 | 비고 |
 |---|---|---|
-| `users` | id(PK), username(UNIQUE), password_hash, nickname(UNIQUE), email(NULL 허용), created_at, last_login_at, deleted_at(NULL 허용) | 탈퇴 시 username·nickname 익명화 |
-| `sessions` | id(PK), user_id(FK), token_hash(UNIQUE), expires_at, persistent(bool), user_agent, created_at | 토큰은 SHA-256 해시만 저장 |
-| `wallets` | user_id(PK, FK), balance(정수, ≥0), updated_at | |
-| `game_results` | game_id(UNIQUE), game_type, participants(JSON), chip_deltas(JSON), ended_at | 중복 정산 방지 키 |
-| `game_result_players` | game_id, user_id, chip_delta, rank | 전적·랭킹 조회용 |
+| `users` | id(uuid PK), username(UNIQUE), password_hash, nickname(UNIQUE, 대소문자 무시), email(NULL 허용), created_at, last_login_at, deleted_at(NULL 허용) | 탈퇴 시 username·nickname 익명화, 해시 삭제 |
+| `sessions` | id(PK), user_id(FK), token_hash(UNIQUE), expires_at, persistent(bool), user_agent, created_at, last_seen_at | 토큰은 SHA-256 해시만 저장 |
+| `wallets` | user_id(PK, FK), balance(bigint, CHECK ≥0), updated_at | |
+| `game_results` | game_id(PK), game_type, participants(JSONB: id·이름·봇 여부·칩 증감), ended_at | 중복 정산 방지 키 |
+| `game_result_players` | (game_id, user_id) PK, chip_delta, rank | 전적·랭킹 조회용 (사람만) |
 | `chip_logs` | id, user_id, delta, reason(`signup`/`game`/`relief`/`buyin`/`refund`), game_id(NULL 허용), created_at | |
-| `login_attempts` | key(아이디 또는 IP), fail_count, locked_until | 5회 실패 시 15분 잠금 |
+| `login_attempts` | key(`u:아이디` 또는 `ip:주소`), fail_count, locked_until, updated_at | 5회 실패 시 15분 잠금 |
 
 - `chat_logs`는 무료 DB 용량을 아끼기 위해 기본으로 만들지 않습니다.
 - 만료된 `sessions`, 보관 기간이 지난 `game_results`는 서버가 주기적으로 정리합니다.
 - 번 카드, 남은 덱, 셔플 시드는 DB에 저장하지 않습니다.
-- ORM은 **Drizzle**(Apache-2.0)을 기본안으로 합니다. 별도 엔진 바이너리 없이 가볍고, SQLite와 PostgreSQL을 모두 지원합니다. 두 DB의 스키마 문법이 달라서 로컬(SQLite)과 배포(PostgreSQL)용 스키마를 함께 관리하는 방법은 5단계에서 확정합니다(결정 보류).
+- ORM은 **Drizzle**(Apache-2.0)입니다. 별도 엔진 바이너리 없이 가볍습니다.
+- **로컬 DB는 PGlite**(Apache-2.0, WASM으로 동작하는 PostgreSQL)입니다(5단계 확정, 사용자 확인). 처음 계획한 SQLite는 PostgreSQL과 문법이 달라 스키마·마이그레이션·쿼리를 두 벌 관리해야 해서 바꿨습니다. 이제 로컬·테스트·배포가 모두 같은 PostgreSQL 스키마와 마이그레이션 한 벌을 씁니다.
+  - `DATABASE_URL`이 비어 있으면 `apps/server/data/pglite` 폴더(커밋하지 않음), `memory://`면 메모리(테스트), `postgres://...`면 외부 PostgreSQL(`pg` 드라이버)에 연결합니다.
+  - 서버가 시작할 때 마이그레이션을 자동으로 적용합니다. 스키마를 바꾸면 `pnpm --filter @card-game/server db:generate`로 새 마이그레이션 SQL을 만들어 함께 커밋합니다.
+- 칩·전적 컬럼은 `bigint`(JS number로 읽음)입니다. 가상 칩이라 2^53 안에서 충분합니다.
 
 ### 2.3 칩 흐름
 
@@ -99,25 +105,33 @@ interface GameEngine<State, Action, View, Options, Result> {
 ## 3. 인증 흐름
 
 ```
-[가입] POST /api/auth/signup {username, password, passwordConfirm, nickname}
+[가입] POST /api/auth/signup {username, password, passwordConfirm, nickname, remember?}
    → 서버 검증 (아이디 형식·중복, 비밀번호 규칙, 닉네임 길이·중복·금칙어)
    → argon2id 해시 → users + wallets(10,000) + chip_logs(signup) 한 트랜잭션
-[중복 확인] GET /api/auth/check-username?u=...  (가입 화면 실시간 확인)
+   → 바로 로그인 처리 (remember 기본값 true)
+[중복 확인] GET /api/auth/check-username?username=... , GET /api/auth/check-nickname?nickname=...
 [로그인] POST /api/auth/login {username, password, remember}
    → login_attempts 확인 (아이디·IP 각각 5회 실패 시 15분 잠금)
    → 실패 메시지는 항상 "아이디 또는 비밀번호가 올바르지 않습니다"
-   → 성공: 무작위 토큰(32바이트) 발급, DB에는 SHA-256 해시만 저장
-   → Set-Cookie: sid=토큰; HttpOnly; Secure; SameSite=(아래 참고); Path=/
-        remember=true → Max-Age 30일, 요청마다 만료 연장
-        remember=false → 세션 쿠키(브라우저 종료 시 만료)
-[자동 로그인] GET /api/auth/me → 쿠키 확인 후 사용자 정보 반환
+   → 없는 아이디도 더미 해시를 검증해 응답 시간으로 존재 여부가 드러나지 않게 함
+   → 성공: 같은 계정의 기존 세션을 모두 삭제(다른 곳 접속 종료), 무작위 토큰(32바이트) 발급,
+     DB에는 SHA-256 해시만 저장
+   → Set-Cookie: sid=토큰; HttpOnly; Secure(배포); SameSite=Lax; Path=/
+        remember=true → Expires 30일, 요청마다 만료 연장(DB 쓰기는 1시간에 한 번)
+        remember=false → 만료 없는 세션 쿠키(브라우저 종료 시 삭제), 서버 쪽 세션은 12시간 슬라이딩 만료
+[자동 로그인] GET /api/auth/me → 쿠키 확인 후 사용자 정보(닉네임, 칩 잔액) 반환
 [로그아웃] POST /api/auth/logout → DB 세션 삭제 + 쿠키 삭제
+[계정 관리] PATCH /api/account/nickname, POST /api/account/password(현재 비밀번호 확인, 다른 세션 종료),
+           POST /api/account/delete(비밀번호 확인, 익명화 후 세션·지갑 삭제)
+[정리] 서버가 1시간마다 만료된 세션과 오래된 로그인 실패 기록을 삭제
 [소켓 인증] Socket.IO 연결 핸드셰이크에서 같은 쿠키를 검증
    → 같은 계정의 기존 소켓이 있으면 "다른 곳에서 로그인되어 접속을 종료합니다" 알림 후 끊고,
      진행 중인 자리는 봇이 대행 → 새 소켓이 방으로 자동 복귀
 ```
 
-- 비밀번호 해시: `@node-rs/argon2`(MIT, 미리 빌드된 바이너리라 별도 컴파일 불필요)를 기본안으로 합니다.
+- 비밀번호 해시: `@node-rs/argon2`(MIT, 미리 빌드된 바이너리라 별도 컴파일 불필요)의 argon2id, 비용은 OWASP 권장 최소치(19MiB, 반복 2)입니다. 숫자는 `AuthConfig`(`apps/server/src/config/auth.ts`)에 모았습니다.
+- 로그인 실패 제한: 아이디·IP를 따로 세고 DB에 저장합니다(서버 재시작에도 유지). 성공하면 아이디 기록만 지우고 IP 기록은 남겨, 내 계정 로그인으로 IP 카운트를 초기화하며 남의 계정을 찔러 보는 것을 막습니다.
+- 개발 중에는 Vite 개발 서버가 `/api`를 백엔드로 프록시해서 같은 출처처럼 동작합니다.
 - **도메인 분리 시 쿠키 정책**: 프론트와 백엔드가 서로 다른 무료 도메인이면 쿠키가 제3자(cross-site) 쿠키가 되어 `SameSite=None; Secure`가 필요하고, Safari 등 일부 브라우저에서는 막힐 수 있습니다. 그래서 **백엔드가 빌드된 프론트 정적 파일도 함께 제공하는 단일 도메인 구성**을 1순위로 검토합니다. 이 경우 `SameSite=Lax`를 쓸 수 있고 CORS도 필요 없습니다. 분리 배포가 불가피하면 `SameSite=None` + CORS 허용 출처 고정(`credentials: true`)으로 갑니다. 최종 결정은 9단계 배포 조사에서 합니다(결정 보류).
 - 입력 검증은 서버에서 스키마 검증(zod, MIT)으로 하고, SQL은 ORM의 파라미터 바인딩만 씁니다. React의 기본 이스케이프를 그대로 쓰고 `dangerouslySetInnerHTML`은 쓰지 않습니다.
 
@@ -179,7 +193,9 @@ interface GameEngine<State, Action, View, Options, Result> {
 | 검증 | zod | MIT |
 | 테스트 | Vitest | MIT |
 | 린트 | ESLint, typescript-eslint | MIT / MIT(BSD-2 일부) |
-| 로컬 DB | SQLite (better-sqlite3) | Public Domain / MIT |
+| 로컬 DB | PGlite (@electric-sql/pglite) | Apache-2.0 |
+| DB 드라이버(배포) | pg (node-postgres) | MIT |
+| HTTP 서버 | Fastify, @fastify/cookie | MIT |
 | 형상 관리·CI | GitHub, GitHub Actions | 비공개 저장소 무료 실행 시간 한도 내 |
 | 배포 | 미정 | 9단계에서 공식 문서로 현재 무료 조건 확인 후 보고 |
 | 에셋 | 카드·아이콘 직접 SVG 제작 | `ASSETS.md`에 기록 |

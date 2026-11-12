@@ -1,22 +1,46 @@
-import { createServer } from 'node:http';
-import { createDeck } from '@card-game/game-core';
+import { buildApp } from './app.js';
+import { deleteStaleLoginAttempts } from './auth/login-limit.js';
+import { deleteExpiredSessions } from './auth/sessions.js';
+import { DEFAULT_AUTH_CONFIG } from './config/auth.js';
+import { loadEnv } from './config/env.js';
+import { openDb } from './db/client.js';
 
 /**
- * 1단계 골격: 상태 확인용 HTTP 서버만 띄운다.
- * 인증, 방 관리, Socket.IO는 5~6단계에서 추가한다.
+ * 서버 진입점: 환경 변수 → DB 연결·마이그레이션 → HTTP 앱 시작.
+ * 방 관리와 Socket.IO는 6단계에서 추가한다.
  */
-const port = Number(process.env.PORT ?? 3001);
+const env = loadEnv();
+const handle = await openDb(env.databaseUrl);
+const app = await buildApp({
+  db: handle.db,
+  secureCookies: env.nodeEnv === 'production',
+  trustProxy: env.trustProxy,
+  logger: true,
+});
 
-const server = createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, deckSize: createDeck().length }));
-    return;
+// 무료 DB 용량을 아끼려고 만료된 세션과 오래된 로그인 실패 기록을 1시간마다 지운다
+const cleanup = async () => {
+  try {
+    const now = new Date();
+    const removed = await deleteExpiredSessions(handle.db, now);
+    await deleteStaleLoginAttempts(handle.db, now, DEFAULT_AUTH_CONFIG);
+    if (removed > 0) app.log.info(`만료된 세션 ${removed}개를 정리했습니다.`);
+  } catch (error) {
+    app.log.error({ err: error }, '정리 작업 실패');
   }
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('찾을 수 없는 주소입니다.');
-});
+};
+await cleanup();
+const timer = setInterval(cleanup, 3_600_000);
+timer.unref();
 
-server.listen(port, () => {
-  console.log(`서버가 시작되었습니다: http://localhost:${port}`);
-});
+const shutdown = async () => {
+  clearInterval(timer);
+  await app.close();
+  await handle.close();
+  process.exit(0);
+};
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
+
+await app.listen({ port: env.port, host: env.nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1' });
+app.log.info(`DB: ${handle.kind === 'pglite' ? '로컬 PGlite' : 'PostgreSQL'}`);

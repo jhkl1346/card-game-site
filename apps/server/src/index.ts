@@ -3,6 +3,7 @@ import { deleteStaleLoginAttempts } from './auth/login-limit.js';
 import { deleteExpiredSessions } from './auth/sessions.js';
 import { DEFAULT_AUTH_CONFIG } from './config/auth.js';
 import { DEFAULT_RECORDS_CONFIG } from './config/records.js';
+import { DEFAULT_SERVER_LIMITS } from './config/limits.js';
 import { loadEnv } from './config/env.js';
 import { openDb } from './db/client.js';
 import { deleteOldGameResults } from './stats/service.js';
@@ -21,6 +22,9 @@ const { app } = await buildApp({
   secureCookies: env.nodeEnv === 'production',
   trustProxy: env.trustProxy,
   logger: true,
+  checkSocketOrigin: env.nodeEnv === 'production',
+  ...(env.webRoot ? { webRoot: env.webRoot } : {}),
+  ...(env.maxRooms ? { limits: { ...DEFAULT_SERVER_LIMITS, maxRooms: env.maxRooms } } : {}),
 });
 
 // 무료 DB 용량을 아끼려고 만료된 세션, 오래된 로그인 실패 기록, 보관 기간이 지난 판별 기록을 1시간마다 지운다
@@ -51,4 +55,5 @@ process.once('SIGTERM', shutdown);
 
 await app.listen({ port: env.port, host: env.nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1' });
 app.log.info(`DB: ${handle.kind === 'pglite' ? '로컬 PGlite' : 'PostgreSQL'}`);
+if (env.webRoot) app.log.info(`화면 파일 제공: ${env.webRoot}`);
 if (refunded > 0) app.log.info(`서버 재시작으로 무효가 된 판의 칩을 ${refunded}명에게 환불했습니다.`);

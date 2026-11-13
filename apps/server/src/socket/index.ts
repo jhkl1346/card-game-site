@@ -40,6 +40,8 @@ export interface SocketOptions {
   /** RoomManager는 소켓 계층의 이벤트를 받아야 해서 나중에 연결한다 */
   rooms: () => RoomManager;
   logError(message: string, error: unknown): void;
+  /** 다른 사이트에서 열린 소켓 연결을 막는다 (Origin 호스트 = 요청 호스트) */
+  checkOrigin?: boolean;
 }
 
 const roomChannel = (roomId: string) => `room:${roomId}`;
@@ -63,6 +65,20 @@ export function createSocketLayer(options: SocketOptions): SocketLayer {
     maxHttpBufferSize: 16 * 1024,
     // 같은 도메인 구성 기준. 개발 중에는 Vite 프록시를 거친다
     cors: undefined,
+    ...(options.checkOrigin
+      ? {
+          allowRequest: (req, callback) => {
+            const origin = req.headers.origin;
+            let ok: boolean;
+            try {
+              ok = Boolean(origin) && new URL(origin!).host === req.headers.host;
+            } catch {
+              ok = false;
+            }
+            callback(ok ? null : '허용되지 않은 출처입니다.', ok);
+          },
+        }
+      : {}),
   });
   const userSockets = new Map<string, AppSocket>();
   const lastChatAt = new Map<string, number>();

@@ -7,13 +7,15 @@
 - 아이디/비밀번호 로그인, 칩·전적·닉네임 영구 저장
 - 칩은 **가상 재화**이며 실제 돈과 연결되지 않습니다.
 
-> 진행 상황: 7단계(화면: 로그인·로비·방 설정·3개 게임 테이블·족보표)까지 구현했습니다. 배포 방법, 무료 서비스 한도는 이후 단계에서 채웁니다.
+> 진행 상황: 1~9단계를 모두 구현했습니다. 배포는 Render(서버+화면) + Neon(DB) 무료 구성입니다. 아래 "배포"를 참고하세요.
 
 ## 문서
 - [`PROMPT.md`](PROMPT.md): 전체 요구사항
 - [`CLAUDE.md`](CLAUDE.md): 작업할 때 항상 지킬 핵심 규칙
 - [`PRODUCT.md`](PRODUCT.md): 사용자, 제품 목적, 화면 설계 원칙
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): 폴더 구조, 데이터 모델, 인증 흐름, 소켓 이벤트 설계
+- [`docs/deploy-report.md`](docs/deploy-report.md): 무료 배포 서비스 조사 보고서 (2026-11-13 공식 문서 확인)
+- [`docs/deploy-guide.md`](docs/deploy-guide.md): 배포 절차와 환경 변수
 - [`docs/rules/stud7.md`](docs/rules/stud7.md): 7포커 규칙과 가정 (`Stud7Rules`)
 - [`docs/rules/holdem.md`](docs/rules/holdem.md): 텍사스 홀덤 규칙과 가정 (`HoldemRules`)
 - [`docs/rules/hula.md`](docs/rules/hula.md): 훌라 규칙과 가정 (`HulaRules`)
@@ -60,7 +62,7 @@ pnpm dev:web
 
 ### DB
 - 로컬에서는 **PGlite**(설치가 필요 없는 PostgreSQL)를 씁니다. `DATABASE_URL`을 비워 두면 `apps/server/data/pglite` 폴더에 데이터가 저장되고, 서버가 시작할 때 마이그레이션이 자동으로 적용됩니다. 이 폴더는 커밋하지 않습니다. 초기화하려면 서버를 끄고 폴더를 지우면 됩니다.
-- 배포에서는 `DATABASE_URL`에 외부 무료 PostgreSQL 접속 문자열을 넣습니다(9단계에서 확정). 로컬과 같은 스키마·마이그레이션을 씁니다.
+- 배포에서는 `DATABASE_URL`에 Neon(무료 PostgreSQL) 접속 문자열을 넣습니다. 로컬과 같은 스키마·마이그레이션을 쓰고, 서버가 시작할 때 자동 적용합니다.
 - 스키마(`apps/server/src/db/schema.ts`)를 바꾸면 마이그레이션 SQL을 새로 만들어 함께 커밋합니다.
 ```bash
 pnpm --filter @card-game/server db:generate
@@ -177,12 +179,27 @@ pnpm sim:hula --players 4 --games 500
 - 훌라 봇은 공개된 카드(버린 더미·멜드)를 추적해 이미 많이 나온 숫자는 버리고, 짝·이웃 카드는 남기며, 남이 붙일 수 있는 카드는 되도록 버리지 않습니다.
 
 ## 기술 스택 (모두 무료/오픈소스)
-- 프론트엔드: React, Vite (Tailwind CSS, Framer Motion은 7단계에서 추가)
+- 프론트엔드: React, Vite, Tailwind CSS, Framer Motion
 - 백엔드: Node.js, Fastify, Socket.IO, Drizzle ORM, argon2id(@node-rs/argon2), zod
 - 공통 게임 로직: `packages/game-core` (순수 TypeScript, Node/브라우저 API 의존 없음)
-- DB: 로컬 PGlite / 배포 외부 무료 PostgreSQL (서비스는 9단계에서 확정). 원래 계획은 로컬 SQLite였지만, 스키마를 한 벌로 관리하려고 5단계에서 PGlite로 바꿨습니다.
+- DB: 로컬 PGlite / 배포 Neon 무료 PostgreSQL. 원래 계획은 로컬 SQLite였지만, 스키마를 한 벌로 관리하려고 5단계에서 PGlite로 바꿨습니다.
 - 테스트: Vitest / 린트: ESLint + typescript-eslint / CI: GitHub Actions
 - TypeScript는 typescript-eslint 호환을 위해 6.0대로 고정했습니다.
+
+## 배포 (무료)
+- 구성: **Render 무료 웹 서비스** 하나가 화면·API·Socket.IO를 함께 제공 + **Neon 무료 PostgreSQL**. 주소는 Render의 무료 서브도메인(`https://<이름>.onrender.com`)입니다.
+- 절차·환경 변수: [`docs/deploy-guide.md`](docs/deploy-guide.md). 설정 파일: [`render.yaml`](render.yaml)
+- 배포는 자동으로 하지 않고 **Actions → 배포 → Run workflow**(`.github/workflows/deploy.yml`, `workflow_dispatch`)로 직접 실행합니다. Render 배포 훅 주소는 `RENDER_DEPLOY_HOOK_URL` 시크릿에만 저장합니다.
+
+### 무료 서비스 한도와 제약 (2026-11-13 공식 문서 기준, 근거: [`docs/deploy-report.md`](docs/deploy-report.md))
+| 서비스 | 한도 | 넘으면 | 이 게임에 미치는 영향과 대응 |
+|---|---|---|---|
+| Render 무료 웹 서비스 | 0.1 CPU, 512MB, 월 750시간 | 결제 수단이 없으면 그달 정지(과금 없음) | 15분 동안 접속이 없으면 잠들고 첫 접속에 약 1분 → "서버를 깨우는 중" 화면. 언제든 재시작될 수 있음 → 진행 중이던 판 무효·칩 환불. 메모리에 맞춰 방 수 10개로 제한(`MAX_ROOMS`). 디스크는 임시라 DB는 외부(Neon) |
+| Neon 무료 | 프로젝트당 1GB, 월 100 CU-시간 | 계산 정지·쓰기 차단(과금 없음, 데이터 유지) | 5분 쉬면 멈췄다가 다음 쿼리에 바로 재시작. 판별 기록은 90일 뒤 정리 |
+| GitHub Actions | 공개 저장소는 기본 러너 무료 | - | CI는 PR·`main` 푸시마다, 배포는 수동 실행 |
+
+- 서버를 깨워 두려고 외부에서 계속 호출하는 방법은 Render 약관에 허용 여부가 없어 쓰지 않습니다.
+- 결제 수단(카드)은 어느 서비스에도 등록하지 않습니다.
 
 ## 브랜치/커밋 규칙
 - `main`에 직접 푸시하지 않고 `feature/단계-기능명` 브랜치 → PR → CI 통과 → squash merge

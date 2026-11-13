@@ -1,0 +1,26 @@
+# Render 배포 설정 (Blueprint). 구성 근거: docs/deploy-report.md, 절차: docs/deploy-guide.md
+# 서버 하나가 API·Socket.IO와 빌드된 화면(apps/web/dist)을 함께 제공한다.
+services:
+  - type: web
+    name: card-game-site
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    # main에 합쳐질 때 자동 배포하지 않는다. GitHub Actions의 "배포" 워크플로를 직접 실행할 때만 배포한다
+    autoDeployTrigger: "off"
+    # Render 문서에 pnpm 지원 방식이 적혀 있지 않아, package.json의 packageManager와 같은 버전을 npx로 불러 쓴다
+    buildCommand: npx --yes pnpm@12.18.0 install --frozen-lockfile && npx --yes pnpm@12.18.0 build
+    # NODE_ENV=production은 실행할 때만 준다. 빌드 때 주면 pnpm이 빌드 도구(devDependencies)를 설치하지 않는다
+    startCommand: NODE_ENV=production node apps/server/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      # Render의 프록시 뒤에서 실행되므로 X-Forwarded-For로 접속 IP를 확인한다 (로그인 실패 제한)
+      - key: TRUST_PROXY
+        value: "true"
+      # 무료 인스턴스 메모리(512MB)에 맞춘 동시 방 수
+      - key: MAX_ROOMS
+        value: "10"
+      # Neon 접속 문자열. 값은 Render 화면에서 직접 입력한다 (저장소에 넣지 않음)
+      - key: DATABASE_URL
+        sync: false

@@ -1,10 +1,14 @@
 import type { HulaRules, Stud7Rules } from '@card-game/game-core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import type { GameSocket } from '../lib/socket.js';
 import { won, type InRoomSnapshot } from '../lib/types.js';
 import { Button, Dialog } from '../components/ui.js';
 import { RulesDialog } from '../components/RulesDialog.js';
+import { SoundToggle } from '../components/SoundToggle.js';
+import { Icon } from '../components/Icon.js';
+import { playSound } from '../lib/sound.js';
+import { ChatBubbles, ChatPanel } from '../table/Chat.js';
 import {
   BottomBand,
   LacquerTable,
@@ -66,9 +70,52 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
   const placed = placeSeats(snap);
   const mySeat = snap.me.seatIndex === null ? null : room.seats[snap.me.seatIndex] ?? null;
 
+  // ── 채팅 ──
+  const [chatOpen, setChatOpen] = useState(false);
+  const [readCount, setReadCount] = useState(0);
+  const chat = socket.chat;
+  const lastChatId = chat.at(-1)?.id ?? 0;
+  const seenChatId = useRef(lastChatId);
+  if (chatOpen && readCount !== chat.length) setReadCount(chat.length);
+  const unread = chatOpen ? 0 : chat.slice(readCount).filter((m) => m.userId !== myId).length;
+  // 채팅이 방을 옮기며 비워지면 읽은 수도 처음부터
+  if (readCount > chat.length) setReadCount(chat.length);
+  useEffect(() => {
+    const fresh = chat.filter((m) => m.id > seenChatId.current && m.userId !== myId);
+    seenChatId.current = lastChatId;
+    if (fresh.length > 0) playSound('chat');
+  }, [lastChatId, chat, myId]);
+  const sendChat = useCallback(
+    async (text: string) => {
+      const r = await emit('chat:send', { text });
+      if (!r.ok) pushNotice(r.error);
+      return r.ok;
+    },
+    [emit, pushNotice],
+  );
+
+  // ── 효과음: 새 판(카드 분배), 내 차례, 이긴 판 ──
+  const handStack = useRef<{ handNo: number; stack: number | null }>({ handNo: room.handNo, stack: mySeat?.stack ?? null });
+  useEffect(() => {
+    if (room.handNo !== handStack.current.handNo) {
+      handStack.current = { handNo: room.handNo, stack: mySeat?.stack ?? null };
+      if (room.handNo > 0) playSound('deal');
+    }
+  }, [room.handNo, mySeat?.stack]);
+  const finished = game?.phase === 'finished';
+  useEffect(() => {
+    const before = handStack.current.stack;
+    if (finished && before !== null && (mySeat?.stack ?? 0) > before) playSound('win');
+    // 판이 끝날 때 한 번만 판단한다 (finished가 바뀔 때만)
+  }, [finished]);
+  useEffect(() => {
+    if (myTurn) playSound('turn');
+  }, [myTurn, snap.turn?.deadline]);
+
   const [pending, setPending] = useState(false);
   const act = useCallback(
     async (action: unknown) => {
+      playSound(room.gameType === 'hula' ? 'deal' : 'chip');
       setPending(true);
       try {
         const r = await emit('game:action', { action });
@@ -77,7 +124,7 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
         setPending(false);
       }
     },
-    [emit, pushNotice],
+    [emit, pushNotice, room.gameType],
   );
 
   const call = async (event: string, payload?: unknown) => {
@@ -110,7 +157,31 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
     <>
     <Stage>
       <LacquerTable />
-      <TopBar snap={snap} holdings={walletBalance === null ? null : walletBalance + (mySeat?.stack ?? 0)} onRules={() => setRulesOpen(true)} onLeave={() => setLeaveOpen(true)} />
+      <TopBar
+        snap={snap}
+        holdings={walletBalance === null ? null : walletBalance + (mySeat?.stack ?? 0)}
+        onRules={() => setRulesOpen(true)}
+        onLeave={() => setLeaveOpen(true)}
+        tools={
+          <>
+            <SoundToggle compact />
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
+              aria-label={unread > 0 ? `채팅 (안 읽은 메시지 ${unread}개)` : '채팅'}
+              className="relative flex h-[30px] items-center gap-1 rounded-md border border-gold/45 px-2.5 text-[12px] font-bold text-gold before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-[''] hover:bg-gold/10"
+            >
+              <Icon name="chat" className="h-3.5 w-3.5" />
+              채팅
+              {unread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[11px] leading-none text-ivory" aria-hidden>
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+          </>
+        }
+      />
 
       {view?.gameType === 'holdem' && <HoldemTable ctx={ctx} view={view} />}
       {view?.gameType === 'stud7' && <Stud7Table ctx={ctx} view={view} />}
@@ -166,7 +237,9 @@ export function TableScreen({ snap, socket }: { snap: InRoomSnapshot; socket: Ga
         </BottomBand>
       )}
 
+      <ChatBubbles chat={chat} placed={placed} myId={myId ?? ""} />
     </Stage>
+      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} chat={chat} myId={myId ?? ""} maxLength={200} send={sendChat} />
       <RulesDialog
         open={rulesOpen}
         onClose={() => setRulesOpen(false)}

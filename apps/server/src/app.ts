@@ -6,9 +6,11 @@ import { authRoutes, makeRequireAuth } from './auth/routes.js';
 import { AuthError, type AuthContext } from './auth/service.js';
 import { DEFAULT_AUTH_CONFIG, RELIEF_CHIP_CONFIG, type AuthConfig, type ReliefChipConfig } from './config/auth.js';
 import { DEFAULT_SERVER_LIMITS, type ServerLimits } from './config/limits.js';
+import { DEFAULT_RECORDS_CONFIG, type RecordsConfig } from './config/records.js';
 import type { Db } from './db/client.js';
 import { RoomManager } from './rooms/manager.js';
 import { createSocketLayer, type SocketLayer } from './socket/index.js';
+import { statsRoutes } from './stats/routes.js';
 import { walletRoutes } from './wallet/routes.js';
 import { WalletService } from './wallet/service.js';
 
@@ -17,6 +19,7 @@ export interface AppOptions {
   authConfig?: AuthConfig;
   limits?: ServerLimits;
   relief?: ReliefChipConfig;
+  records?: RecordsConfig;
   /** 배포(HTTPS)에서는 true */
   secureCookies?: boolean;
   /** 리버스 프록시 뒤에서 실행할 때 X-Forwarded-For를 믿을지 */
@@ -102,6 +105,11 @@ export async function buildApp(options: AppOptions): Promise<AppBundle> {
       beforeDeleteAccount: (userId) => {
         if (manager.roomOf(userId)) throw new Error('방에서 나온 뒤에 탈퇴할 수 있습니다.');
       },
+      // 방 안에서는 자리 이름이 이미 정해져 있으므로 방에서 나온 뒤에 바꾸게 한다
+      beforeChangeNickname: (userId) => {
+        if (manager.roomOf(userId)) throw new Error('방에서 나온 뒤에 닉네임을 바꿀 수 있습니다.');
+      },
+      nicknameChanged: (userId, nickname) => sockets.renameUser(userId, nickname),
     },
   });
   await app.register(walletRoutes, {
@@ -109,6 +117,11 @@ export async function buildApp(options: AppOptions): Promise<AppBundle> {
     relief: options.relief ?? RELIEF_CHIP_CONFIG,
     requireAuth: makeRequireAuth(ctx, secureCookies),
     tableChipsOf: (userId) => manager.tableChipsOf(userId),
+  });
+  await app.register(statsRoutes, {
+    db: options.db,
+    config: options.records ?? DEFAULT_RECORDS_CONFIG,
+    requireAuth: makeRequireAuth(ctx, secureCookies),
   });
 
   // 종료: 소켓을 먼저 끊고, 방을 모두 닫아 앉아 있던 칩을 지갑으로 돌려준다 (진행 중이던 판은 무효)

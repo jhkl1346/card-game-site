@@ -12,12 +12,25 @@ export interface Notice {
   message: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  userId: string;
+  nickname: string;
+  text: string;
+  at: number;
+}
+
+/** 방에서 기억할 최근 채팅 수 (DB에 저장하지 않으므로 화면에만 남는다) */
+const CHAT_KEEP = 60;
+
 export interface GameSocket {
   state: ConnectionState;
   snapshot: RoomSnapshot | null;
   /** 스냅샷을 받은 순간의 (서버 시각 - 내 시각). 남은 시간 계산에 쓴다 */
   clockOffset: number;
   lobbyRooms: RoomSummary[];
+  /** 지금 방의 채팅 (방이 바뀌면 비운다) */
+  chat: ChatMessage[];
   notices: Notice[];
   dismissNotice(id: number): void;
   pushNotice(message: string): void;
@@ -26,6 +39,7 @@ export interface GameSocket {
 }
 
 let noticeSeq = 0;
+let chatSeq = 0;
 
 /**
  * 로그인한 뒤 서버와 소켓을 연결한다. 세션 쿠키로 인증하며, 방 상태는 서버가 보내는 스냅샷만 믿는다.
@@ -37,6 +51,7 @@ export function useGameSocket(enabled: boolean): GameSocket {
   const [clockOffset, setClockOffset] = useState(0);
   const [lobbyRooms, setLobbyRooms] = useState<RoomSummary[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
   const lastSeq = useRef(-1);
 
   const pushNotice = useCallback((message: string) => {
@@ -68,17 +83,20 @@ export function useGameSocket(enabled: boolean): GameSocket {
       if (!snap || !snap.room) {
         lastSeq.current = -1;
         snapshotRoomId.current = null;
+        setChat([]);
         setSnapshot(snap);
         return;
       }
       // 늦게 도착한 옛 스냅샷은 버린다 (방이 바뀌면 seq가 처음부터 다시 시작)
       if (snap.seq < lastSeq.current && snapshotRoomId.current === snap.room.id) return;
       lastSeq.current = snap.seq;
+      if (snapshotRoomId.current !== snap.room.id) setChat([]);
       snapshotRoomId.current = snap.room.id;
       setClockOffset(snap.serverNow - Date.now());
       setSnapshot(snap);
     });
     socket.on('lobby:rooms', (rooms: RoomSummary[]) => setLobbyRooms(rooms));
+    socket.on('chat:message', (m: Omit<ChatMessage, 'id'>) => setChat((list) => [...list.slice(-(CHAT_KEEP - 1)), { ...m, id: ++chatSeq }]));
     socket.on('server:notice', ({ message }: { message: string }) => pushNotice(message));
   }, [pushNotice]);
 
@@ -107,5 +125,5 @@ export function useGameSocket(enabled: boolean): GameSocket {
 
   const dismissNotice = useCallback((id: number) => setNotices((list) => list.filter((n) => n.id !== id)), []);
 
-  return { state, snapshot, clockOffset, lobbyRooms, notices, dismissNotice, pushNotice, emit, reconnect: connect };
+  return { state, snapshot, clockOffset, lobbyRooms, chat, notices, dismissNotice, pushNotice, emit, reconnect: connect };
 }

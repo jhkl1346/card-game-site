@@ -28,6 +28,8 @@ export interface SocketLayer {
   lobbyChanged(): void;
   notice(userId: string, message: string): void;
   memberLeft(room: GameRoom, userId: string): void;
+  /** 닉네임이 바뀜: 연결된 소켓이 들고 있는 닉네임도 바꾼다 */
+  renameUser(userId: string, nickname: string): void;
 }
 
 export interface SocketOptions {
@@ -111,6 +113,10 @@ export function createSocketLayer(options: SocketOptions): SocketLayer {
     lobbyChanged: debounce(() => {
       io.to('lobby').emit('lobby:rooms', options.rooms().listPublic());
     }, 300),
+    renameUser(userId, nickname) {
+      const socket = userSockets.get(userId);
+      if (socket) socket.data.user = { ...socket.data.user, nickname };
+    },
     notice(userId, message) {
       userSockets.get(userId)?.emit('server:notice', { message });
     },

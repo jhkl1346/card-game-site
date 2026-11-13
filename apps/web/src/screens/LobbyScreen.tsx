@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, ApiError, type PublicUser, type WalletInfo } from '../lib/api.js';
+import { api, ApiError, type MyStats, type PublicUser, type WalletInfo } from '../lib/api.js';
+import { SoundToggle } from '../components/SoundToggle.js';
+import { winRate } from './ProfileScreen.js';
 import type { GameSocket } from '../lib/socket.js';
 import { GAME_INFO, won, type GameType, type RoomSettingsInput, type RoomSummary } from '../lib/types.js';
 import { Button, inputClass } from '../components/ui.js';
@@ -21,10 +23,12 @@ export function LobbyScreen({
   user,
   socket,
   onLogout,
+  onOpen,
 }: {
   user: PublicUser;
   socket: GameSocket;
   onLogout: () => void;
+  onOpen: (view: 'profile' | 'ranking') => void;
 }) {
   const [game, setGame] = useState<GameType>('holdem');
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
@@ -46,6 +50,19 @@ export function LobbyScreen({
   useEffect(() => {
     void refreshWallet();
   }, [refreshWallet]);
+
+  // 전적 요약
+  const [stats, setStats] = useState<MyStats['total'] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .stats()
+      .then((s) => alive && setStats(s.total))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // 방 목록 구독 (로비에 있는 동안만)
   useEffect(() => {
@@ -95,10 +112,21 @@ export function LobbyScreen({
     <div className="mx-auto flex min-h-full max-w-5xl flex-col px-4 pb-6">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
         <h1 className="font-serif text-lg font-bold text-gold">카드 게임</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="hidden text-sm text-muted sm:inline">
-            <b className="text-ivory">{user.nickname}</b> 님
-          </span>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onOpen('profile')}
+            className="flex min-h-10 items-center gap-2 rounded-full border border-gold/30 bg-lacquer px-3 text-sm hover:border-gold/60"
+            aria-label={`내 정보: ${user.nickname}${stats ? `, ${stats.played}판 승률 ${winRate(stats)}` : ''}`}
+          >
+            <Icon name="user" className="h-4 w-4 text-gold" />
+            <b className="max-w-[9em] truncate text-ivory">{user.nickname}</b>
+            {stats && stats.played > 0 && (
+              <span className="text-[13px] text-muted">
+                {stats.played}판 · 승률 {winRate(stats)}
+              </span>
+            )}
+          </button>
           <span className="flex items-center gap-1.5 rounded-full bg-lacquer px-3 py-1.5 text-[15px] font-bold" aria-label={`보유 칩 ${won(balance)}개`}>
             <ChipMark />
             {won(balance)}
@@ -108,10 +136,15 @@ export function LobbyScreen({
               구제 칩 {won(wallet.reliefAmount)} 받기
             </Button>
           )}
+          <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => onOpen('ranking')}>
+            <Icon name="crown" className="h-4 w-4" />
+            랭킹
+          </Button>
           <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => setRulesOpen(true)}>
             <Icon name="book" className="h-4 w-4" />
             족보·규칙
           </Button>
+          <SoundToggle />
           <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={onLogout}>
             로그아웃
           </Button>

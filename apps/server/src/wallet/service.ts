@@ -1,7 +1,7 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
 import type { ReliefChipConfig } from '../config/auth.js';
 import type { Db } from '../db/client.js';
-import { chipLogs, gameResultPlayers, gameResults, tableStakes, wallets, type GameType } from '../db/schema.js';
+import { chipLogs, gameResultPlayers, gameResults, tableStakes, userStats, wallets, type GameType } from '../db/schema.js';
 
 /** 사용자에게 그대로 보여 줄 한국어 메시지를 가진 지갑 오류 */
 export class WalletError extends Error {
@@ -94,6 +94,21 @@ export class WalletService implements WalletPort {
         if (p.chipDelta !== 0) {
           await tx.insert(chipLogs).values({ userId: p.id, delta: p.chipDelta, reason: 'game', gameId: record.gameId });
         }
+        // 게임별 누적 전적
+        const win = p.chipDelta > 0 ? 1 : 0;
+        await tx
+          .insert(userStats)
+          .values({ userId: p.id, gameType: record.gameType, played: 1, wins: win, chipNet: p.chipDelta, bestWin: Math.max(0, p.chipDelta) })
+          .onConflictDoUpdate({
+            target: [userStats.userId, userStats.gameType],
+            set: {
+              played: sql`${userStats.played} + 1`,
+              wins: sql`${userStats.wins} + ${win}`,
+              chipNet: sql`${userStats.chipNet} + ${p.chipDelta}`,
+              bestWin: sql`greatest(${userStats.bestWin}, ${p.chipDelta})`,
+              updatedAt: new Date(),
+            },
+          });
         await tx
           .update(tableStakes)
           .set({ amount: p.finalChips, updatedAt: new Date() })

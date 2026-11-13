@@ -5,6 +5,8 @@ import type { InRoomSnapshot } from './lib/types.js';
 import { AuthScreen } from './screens/AuthScreen.js';
 import { LobbyScreen } from './screens/LobbyScreen.js';
 import { TableScreen } from './screens/TableScreen.js';
+import { ProfileScreen } from './screens/ProfileScreen.js';
+import { RankingScreen } from './screens/RankingScreen.js';
 import { Button, Toasts } from './components/ui.js';
 import { PlayingCard } from './components/PlayingCard.js';
 
@@ -13,6 +15,8 @@ type Boot = 'checking' | 'waking' | 'ready';
 export function App() {
   const [boot, setBoot] = useState<Boot>('checking');
   const [user, setUser] = useState<PublicUser | null | undefined>(undefined);
+  /** 로비에서 연 화면 (방에 들어가 있으면 게임 화면이 우선) */
+  const [view, setView] = useState<'lobby' | 'profile' | 'ranking'>('lobby');
 
   // 1) 서버가 깨어 있는지 확인 (무료 서버는 잠들어 있으면 첫 응답이 늦다)
   useEffect(() => {
@@ -37,6 +41,16 @@ export function App() {
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined);
     setUser(null);
+    setView('lobby');
+  }, []);
+
+  // 내 정보 화면으로 갈 때 잔액을 최신으로
+  const openView = useCallback((v: 'profile' | 'ranking') => {
+    setView(v);
+    void api
+      .me()
+      .then(({ user }) => setUser(user))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -70,8 +84,21 @@ export function App() {
       {socket.state === 'reconnecting' && <ConnectionBanner state={socket.state} />}
       {inRoom ? (
         <TableScreen snap={inRoom} socket={socket} />
+      ) : view === 'profile' ? (
+        <ProfileScreen
+          user={user}
+          onBack={() => setView('lobby')}
+          onUserChange={setUser}
+          onDeleted={() => {
+            setUser(null);
+            setView('lobby');
+          }}
+          notify={socket.pushNotice}
+        />
+      ) : view === 'ranking' ? (
+        <RankingScreen onBack={() => setView('lobby')} />
       ) : (
-        <LobbyScreen user={user} socket={socket} onLogout={logout} />
+        <LobbyScreen user={user} socket={socket} onLogout={logout} onOpen={openView} />
       )}
       <Toasts notices={socket.notices} onDismiss={socket.dismissNotice} />
     </>

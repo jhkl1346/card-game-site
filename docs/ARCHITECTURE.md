@@ -138,7 +138,7 @@ interface GameEngine<State, Action, View, Options, Result> {
 - 비밀번호 해시: `@node-rs/argon2`(MIT, 미리 빌드된 바이너리라 별도 컴파일 불필요)의 argon2id, 비용은 OWASP 권장 최소치(19MiB, 반복 2)입니다. 숫자는 `AuthConfig`(`apps/server/src/config/auth.ts`)에 모았습니다.
 - 로그인 실패 제한: 아이디·IP를 따로 세고 DB에 저장합니다(서버 재시작에도 유지). 성공하면 아이디 기록만 지우고 IP 기록은 남겨, 내 계정 로그인으로 IP 카운트를 초기화하며 남의 계정을 찔러 보는 것을 막습니다.
 - 개발 중에는 Vite 개발 서버가 `/api`를 백엔드로 프록시해서 같은 출처처럼 동작합니다.
-- **도메인 분리 시 쿠키 정책**: 프론트와 백엔드가 서로 다른 무료 도메인이면 쿠키가 제3자(cross-site) 쿠키가 되어 `SameSite=None; Secure`가 필요하고, Safari 등 일부 브라우저에서는 막힐 수 있습니다. 그래서 **백엔드가 빌드된 프론트 정적 파일도 함께 제공하는 단일 도메인 구성**을 1순위로 검토합니다. 이 경우 `SameSite=Lax`를 쓸 수 있고 CORS도 필요 없습니다. 분리 배포가 불가피하면 `SameSite=None` + CORS 허용 출처 고정(`credentials: true`)으로 갑니다. 최종 결정은 9단계 배포 조사에서 합니다(결정 보류).
+- **도메인 분리 시 쿠키 정책**: 프론트와 백엔드가 서로 다른 무료 도메인이면 쿠키가 제3자(cross-site) 쿠키가 되어 `SameSite=None; Secure`가 필요하고, Safari 등 일부 브라우저에서는 막힐 수 있습니다. 그래서 **백엔드가 빌드된 프론트 정적 파일도 함께 제공하는 단일 도메인 구성**으로 확정했습니다(9단계, `docs/deploy-report.md`). `SameSite=Lax`를 그대로 쓰고 CORS가 필요 없습니다. 화면 응답에는 자기 출처만 허용하는 CSP를 붙이고, production에서는 소켓 연결의 Origin 호스트가 요청 Host와 다르면 거절합니다(`apps/server/src/http/web.ts`).
 - 입력 검증은 서버에서 스키마 검증(zod, MIT)으로 하고, SQL은 ORM의 파라미터 바인딩만 씁니다. React의 기본 이스케이프를 그대로 쓰고 `dangerouslySetInnerHTML`은 쓰지 않습니다.
 
 ## 4. 소켓 이벤트 명세 (Socket.IO, 6단계 확정)

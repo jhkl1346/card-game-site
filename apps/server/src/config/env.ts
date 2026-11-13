@@ -18,6 +18,10 @@ export interface ServerEnv {
   databaseUrl: string;
   /** 리버스 프록시 뒤에서 실행할 때 X-Forwarded-For를 믿을지 (로그인 IP 제한에 사용) */
   trustProxy: boolean;
+  /** 빌드된 화면 파일 폴더. production에서 기본값은 apps/web/dist (있을 때만) */
+  webRoot: string | null;
+  /** 동시에 열 수 있는 방 수 (무료 서버 메모리에 맞춰 조정) */
+  maxRooms: number | null;
 }
 
 export function loadEnv(): ServerEnv {
@@ -29,5 +33,19 @@ export function loadEnv(): ServerEnv {
     port: Number(process.env.PORT ?? 3001),
     databaseUrl: process.env.DATABASE_URL ?? '',
     trustProxy: process.env.TRUST_PROXY === 'true',
+    webRoot: resolveWebRoot(process.env.WEB_ROOT, nodeEnv === 'production'),
+    maxRooms: positiveInt(process.env.MAX_ROOMS),
   };
+}
+
+function resolveWebRoot(value: string | undefined, production: boolean): string | null {
+  if (value === 'off') return null;
+  if (value) return resolve(value);
+  const built = resolve(import.meta.dirname, '../../../web/dist');
+  return production && existsSync(resolve(built, 'index.html')) ? built : null;
+}
+
+function positiveInt(value: string | undefined): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
 }

@@ -136,17 +136,19 @@ export function LobbyScreen({
               구제 칩 {won(wallet.reliefAmount)} 받기
             </Button>
           )}
-          <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => onOpen('ranking')}>
+          {/* 좁은 화면(세로 휴대폰)에서는 아이콘만 */}
+          <Button variant="ghost" className="min-h-10 px-2.5 text-sm sm:px-3" onClick={() => onOpen('ranking')} aria-label="랭킹">
             <Icon name="crown" className="h-4 w-4" />
-            랭킹
+            <span className="hidden sm:inline">랭킹</span>
           </Button>
-          <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => setRulesOpen(true)}>
+          <Button variant="ghost" className="min-h-10 px-2.5 text-sm sm:px-3" onClick={() => setRulesOpen(true)} aria-label="족보·규칙">
             <Icon name="book" className="h-4 w-4" />
-            족보·규칙
+            <span className="hidden sm:inline">족보·규칙</span>
           </Button>
           <SoundToggle />
-          <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={onLogout}>
-            로그아웃
+          <Button variant="ghost" className="min-h-10 px-2.5 text-sm sm:px-3" onClick={onLogout} aria-label="로그아웃">
+            <Icon name="exit" className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">로그아웃</span>
           </Button>
         </div>
       </header>

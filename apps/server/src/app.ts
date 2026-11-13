@@ -11,6 +11,7 @@ import type { Db } from './db/client.js';
 import { RoomManager } from './rooms/manager.js';
 import { createSocketLayer, type SocketLayer } from './socket/index.js';
 import { statsRoutes } from './stats/routes.js';
+import { isWebRoute, securityHeaders, serveWeb } from './http/web.js';
 import { walletRoutes } from './wallet/routes.js';
 import { WalletService } from './wallet/service.js';
 
@@ -24,6 +25,10 @@ export interface AppOptions {
   secureCookies?: boolean;
   /** 리버스 프록시 뒤에서 실행할 때 X-Forwarded-For를 믿을지 */
   trustProxy?: boolean;
+  /** 빌드된 화면 파일 폴더 (주면 같은 주소에서 화면도 제공한다) */
+  webRoot?: string;
+  /** 소켓 연결 시 Origin이 같은 호스트인지 확인 (배포에서 켠다) */
+  checkSocketOrigin?: boolean;
   /** 요청 로그 출력 여부 (테스트에서는 끈다) */
   logger?: boolean;
   /** 시간 주입 (테스트용) */
@@ -53,6 +58,7 @@ export async function buildApp(options: AppOptions): Promise<AppBundle> {
       : false,
   });
   await app.register(cookie);
+  securityHeaders(app, options.secureCookies ?? false);
   const logError = (message: string, error: unknown) => app.log.error({ err: error }, message);
 
   app.setErrorHandler((error, request, reply) => {
@@ -86,6 +92,7 @@ export async function buildApp(options: AppOptions): Promise<AppBundle> {
     limits,
     rooms: () => rooms!,
     logError,
+    checkOrigin: options.checkSocketOrigin ?? false,
   });
   rooms = new RoomManager({
     wallet,
@@ -132,6 +139,11 @@ export async function buildApp(options: AppOptions): Promise<AppBundle> {
     await manager.shutdown();
   });
 
-  app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: '찾을 수 없는 주소입니다.' }));
+  if (options.webRoot) await serveWeb(app, options.webRoot);
+  app.setNotFoundHandler((request, reply) => {
+    // 화면 쪽 경로는 index.html (새로 고침해도 화면이 뜨도록)
+    if (options.webRoot && isWebRoute(request.method, request.url)) return reply.type('text/html').sendFile('index.html');
+    return reply.code(404).send({ error: '찾을 수 없는 주소입니다.' });
+  });
   return { app, rooms: manager, wallet, sockets };
 }

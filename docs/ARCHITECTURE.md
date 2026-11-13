@@ -159,7 +159,7 @@ interface GameEngine<State, Action, View, Options, Result> {
 | C→S | `room:resync` | 스냅샷 다시 받기 |
 | S→C | `room:snapshot` | 방 정보 + **받는 사람의 시야로 만든** 게임 상태 + 차례·마감 시각(`serverNow` 기준) + `seq`. 상태가 바뀔 때마다 사람마다 따로 보냄 |
 | C→S | `game:action` | `{ action }` 차례·형식·규칙 검증, 틀리면 거절 |
-| C→S | `chat:send` | `{ text }` 길이·빈도 제한, 욕설은 `*`로 가림 |
+| C→S | `chat:send` | `{ text }` 길이·빈도 제한 (내용은 거르지 않음, 사용자 요청 2026-11-13) |
 | S→C | `chat:message` | `{ userId, nickname, text, at }` (DB 저장 안 함) |
 | S→C | `session:replaced` | 같은 계정의 다른 접속·로그인·로그아웃으로 접속 종료 |
 | S→C | `server:notice` | 강퇴, 칩 소진으로 자리에서 일어남 등 안내 |

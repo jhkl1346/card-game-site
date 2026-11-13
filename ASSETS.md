@@ -9,7 +9,7 @@
 | 무늬 4종 (스페이드·하트·다이아·클로버) | SVG | 직접 제작 (`PlayingCard.tsx`의 `SuitIcon`) | MIT (이 저장소) | |
 | 아이콘 (규칙, 나가기, 닫기, 사람, 봇, 자물쇠, 왕관, 채팅, 스피커 등), 칩 표시 | SVG | 직접 제작 (`apps/web/src/components/Icon.tsx`) | MIT (이 저장소) | |
 | 효과음 (카드 분배, 칩, 내 차례, 이김, 채팅) | Web Audio 합성 | 직접 제작 (`apps/web/src/lib/sound.ts`) | MIT (이 저장소) | 음원 파일 없음, 브라우저에서 짧은 음을 만들어 재생 |
-| 이모티콘 (👍 👏 😂 등) | 유니코드 문자 | 사용자 기기의 시스템 이모지 글꼴 | - | 이미지 파일 없음 |
+| 이모티콘 (👍 😂 🤪 🤡 🐔 💩 등 18종) | 유니코드 문자 | 사용자 기기의 시스템 이모지 글꼴 | - | 이미지 파일 없음 |
 | 파비콘 | SVG | 직접 제작 (`apps/web/public/favicon.svg`) | MIT (이 저장소) | |
 | 교자상 테이블, 자개 테두리 | CSS | 직접 제작 (`apps/web/src/index.css`, `apps/web/src/table/common.tsx`) | MIT (이 저장소) | 이미지 파일 없음 |
 | Noto Sans KR (본문) | 웹폰트 | Google Fonts / npm `@fontsource/noto-sans-kr` | SIL OFL 1.1 | 빌드에 포함해 직접 제공 (외부 요청 없음) |

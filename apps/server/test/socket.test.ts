@@ -136,13 +136,13 @@ describe('Socket.IO', () => {
     expect(JSON.parse(cb.received.find((x) => x.event === 'chat:message')!.json)).toMatchObject({ nickname: '하늘', text: '<b>안녕</b>' });
   });
 
-  it('채팅 욕설은 가려서 전달된다', async () => {
+  it('채팅은 거르지 않고 그대로 전달된다 (지인끼리 쓰는 용도)', async () => {
     const a = await signup('player01', '하늘');
     const ca = await open(a.cookie);
     await request(ca.socket, 'room:create', { gameType: 'hula', botCount: 1 });
     expect((await request(ca.socket, 'chat:send', { text: '아 씨발' })).ok).toBe(true);
     await waitFor(() => ca.received.some((x) => x.event === 'chat:message'));
-    expect(JSON.parse(ca.received.find((x) => x.event === 'chat:message')!.json).text).toBe('아 **');
+    expect(JSON.parse(ca.received.find((x) => x.event === 'chat:message')!.json).text).toBe('아 씨발');
   });
 
   it('닉네임은 방 밖에서만 바꿀 수 있고, 바꾸면 채팅에도 새 닉네임이 쓰인다', async () => {

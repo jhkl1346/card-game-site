@@ -4,8 +4,11 @@ import type { ChatMessage } from '../lib/socket.js';
 import { Icon } from '../components/Icon.js';
 import type { PlacedSeat } from './common.js';
 
-/** 이모티콘 (한 번 눌러 바로 보내기) */
-export const EMOTES = ['👍', '👏', '😂', '😮', '😭', '😡', '🔥', '🙏'] as const;
+/** 이모티콘 (한 번 눌러 바로 보내기). 윗줄은 반응, 아랫줄은 친구끼리 놀리기용 */
+export const EMOTES = [
+  ['👍', '👏', '😂', '😮', '😭', '😡', '🔥', '🙏', '😎'],
+  ['😜', '🤪', '😏', '🙄', '🤭', '🤡', '🐔', '💩', '👋'],
+] as const;
 
 /** 말풍선을 띄워 두는 시간 */
 const BUBBLE_MS = 4_500;
@@ -157,14 +160,14 @@ export function ChatPanel({
             )}
           </ol>
 
-          <div className="flex flex-wrap gap-1 border-t border-gold/15 px-2 pt-2" role="group" aria-label="이모티콘 보내기">
-            {EMOTES.map((e) => (
+          <div className="grid grid-cols-9 border-t border-gold/15 px-2 pt-1.5" role="group" aria-label="이모티콘 보내기">
+            {EMOTES.flat().map((e) => (
               <button
                 key={e}
                 type="button"
                 disabled={busy}
                 onClick={() => void submit(undefined, e)}
-                className="grid h-10 w-10 place-items-center rounded-lg text-[22px] hover:bg-gold/10 disabled:opacity-40"
+                className="grid h-[34px] place-items-center rounded-lg text-[20px] transition-transform hover:bg-gold/10 active:scale-90 disabled:opacity-40"
                 aria-label={`${e} 보내기`}
               >
                 {e}

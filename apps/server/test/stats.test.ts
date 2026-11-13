@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { maskBannedWords } from '../src/auth/banned-words.js';
 import { DEFAULT_RECORDS_CONFIG } from '../src/config/records.js';
 import { gameResultPlayers, gameResults, userStats, wallets } from '../src/db/schema.js';
 import { deleteOldGameResults } from '../src/stats/service.js';
@@ -137,18 +136,5 @@ describe('칩 랭킹', () => {
     } finally {
       await small.close();
     }
-  });
-});
-
-describe('채팅 욕설 가리기', () => {
-  it('욕설은 같은 길이의 *로 가리고, 기호를 끼운 우회도 잡는다', () => {
-    expect(maskBannedWords('아 시발 졌다')).toBe('아 ** 졌다');
-    expect(maskBannedWords('F.U.C.K this')).toBe('******* this');
-    expect(maskBannedWords('시_발')).toBe('***');
-  });
-
-  it('평범한 말과 운영자 같은 단어는 그대로 둔다', () => {
-    expect(maskBannedWords('좋은 패네요 👍')).toBe('좋은 패네요 👍');
-    expect(maskBannedWords('관리자님 안녕하세요')).toBe('관리자님 안녕하세요');
   });
 });

@@ -10,7 +10,7 @@ card-game-site/
 ├─ apps/
 │  ├─ web/                    # 프론트엔드 (React + TS + Vite, Tailwind, Framer Motion)
 │  │  └─ src/
-│  │     ├─ screens/          # 로그인·회원가입, 로비, 게임 화면 (내 정보·랭킹은 8단계)
+│  │     ├─ screens/          # 로그인·회원가입, 로비, 게임 화면, 내 정보, 칩 랭킹
 │  │     ├─ components/       # 카드·무늬(SVG), 아이콘, 버튼·대화상자, 방 설정, 족보표
 │  │     ├─ table/            # 교자상 무대·좌석 공통 + stud7 / holdem / hula 테이블
 │  │     └─ lib/              # REST 호출, Socket.IO 연결(서버 스냅샷을 상태로 보관), 타입
@@ -81,12 +81,14 @@ interface GameEngine<State, Action, View, Options, Result> {
 | `wallets` | user_id(PK, FK), balance(bigint, CHECK ≥0), updated_at | |
 | `table_stakes` | user_id(PK, FK), room_id, amount(CHECK ≥0) | 테이블에 올라가 있는 칩 (6단계 추가) |
 | `game_results` | game_id(PK), game_type, participants(JSONB: id·이름·봇 여부·칩 증감), ended_at | 중복 정산 방지 키 |
-| `game_result_players` | (game_id, user_id) PK, chip_delta, rank | 전적·랭킹 조회용 (사람만) |
+| `game_result_players` | (game_id, user_id) PK, chip_delta, rank | 최근 판 조회용 (사람만) |
+| `user_stats` | (user_id, game_type) PK, played, wins, chip_net, best_win, updated_at | 게임별 누적 전적 (8단계 추가). 판 정산과 같은 트랜잭션에서 더함 |
 | `chip_logs` | id, user_id, delta, reason(`signup`/`game`/`relief`/`buyin`/`cashout`/`refund`), game_id(NULL 허용), created_at | |
 | `login_attempts` | key(`u:아이디` 또는 `ip:주소`), fail_count, locked_until, updated_at | 5회 실패 시 15분 잠금 |
 
 - `chat_logs`는 무료 DB 용량을 아끼기 위해 기본으로 만들지 않습니다.
-- 만료된 `sessions`, 보관 기간이 지난 `game_results`는 서버가 주기적으로 정리합니다.
+- 만료된 `sessions`, 보관 기간(`RecordsConfig.gameResultRetentionDays`, 기본 90일)이 지난 `game_results`는 서버가 1시간마다 정리합니다. 누적 전적 `user_stats`는 지우지 않으므로 오래된 판이 지워져도 전적은 유지됩니다.
+- 칩 랭킹은 `wallets.balance + table_stakes.amount`(지갑 + 테이블 칩) 순이고 탈퇴한 사람은 빠집니다.
 - 번 카드, 남은 덱, 셔플 시드는 DB에 저장하지 않습니다.
 - ORM은 **Drizzle**(Apache-2.0)입니다. 별도 엔진 바이너리 없이 가볍습니다.
 - **로컬 DB는 PGlite**(Apache-2.0, WASM으로 동작하는 PostgreSQL)입니다(5단계 확정, 사용자 확인). 처음 계획한 SQLite는 PostgreSQL과 문법이 달라 스키마·마이그레이션·쿼리를 두 벌 관리해야 해서 바꿨습니다. 이제 로컬·테스트·배포가 모두 같은 PostgreSQL 스키마와 마이그레이션 한 벌을 씁니다.
@@ -100,7 +102,7 @@ interface GameEngine<State, Action, View, Options, Result> {
 
 1. **바이인**(자리에 앉을 때): 한 트랜잭션으로 `wallets.balance`를 차감하고 `table_stakes`를 만들고 `chip_logs(buyin)`을 남깁니다. 잔액이 바이인보다 적으면 가진 만큼(최소 판돈 × 20) 앉습니다.
 2. **판 진행 중**: 칩 증감은 서버 메모리(엔진 상태)에서만 일어납니다.
-3. **판 종료**: 한 트랜잭션으로 `game_results`(game_id PK), `game_result_players`, `chip_logs(game)`을 넣고 `table_stakes.amount`를 판이 끝난 뒤 테이블 칩으로 바꿉니다. `game_id`가 이미 있으면(`ON CONFLICT DO NOTHING`) 아무것도 하지 않으므로 중복 정산되지 않습니다. 지갑 잔액은 이때 바뀌지 않습니다.
+3. **판 종료**: 한 트랜잭션으로 `game_results`(game_id PK), `game_result_players`, `user_stats`(누적 전적), `chip_logs(game)`을 넣고 `table_stakes.amount`를 판이 끝난 뒤 테이블 칩으로 바꿉니다. `game_id`가 이미 있으면(`ON CONFLICT DO NOTHING`) 아무것도 하지 않으므로 중복 정산되지 않습니다. 지갑 잔액은 이때 바뀌지 않습니다.
 4. **일어날 때**(나가기, 강퇴, 칩 소진, 오래 접속하지 않음): 한 트랜잭션으로 `table_stakes`를 지우면서 그 칩을 지갑에 더하고 `chip_logs(cashout)`을 남깁니다. 판 도중 나가면 그 판은 자동 액션(체크/다이, 훌라는 자동 버리기)으로 마친 뒤 일어납니다.
 5. **서버 재시작**: 시작할 때 남아 있는 `table_stakes`를 모두 지갑에 환불합니다(`chip_logs(refund)`). 이 값은 마지막으로 끝난 판 기준이므로 곧 "진행 중이던 판이 시작되기 전 칩"입니다. 정상 종료(SIGTERM) 때도 방을 모두 닫으며 같은 방식으로 돌려줍니다.
 6. **구제 칩**(`POST /api/wallet/relief`): 방 관리자가 아는 지금 테이블 칩이 0이고, 트랜잭션 안에서 `table_stakes`에 칩이 없고, 조건부 UPDATE(`WHERE balance = 0`)가 성공할 때만 `ReliefChipConfig.amount`(5,000)를 지급합니다. 동시에 여러 번 요청해도 하나만 성공하고, 횟수 제한은 없습니다.
@@ -157,7 +159,7 @@ interface GameEngine<State, Action, View, Options, Result> {
 | C→S | `room:resync` | 스냅샷 다시 받기 |
 | S→C | `room:snapshot` | 방 정보 + **받는 사람의 시야로 만든** 게임 상태 + 차례·마감 시각(`serverNow` 기준) + `seq`. 상태가 바뀔 때마다 사람마다 따로 보냄 |
 | C→S | `game:action` | `{ action }` 차례·형식·규칙 검증, 틀리면 거절 |
-| C→S | `chat:send` | `{ text }` 길이·빈도 제한 |
+| C→S | `chat:send` | `{ text }` 길이·빈도 제한, 욕설은 `*`로 가림 |
 | S→C | `chat:message` | `{ userId, nickname, text, at }` (DB 저장 안 함) |
 | S→C | `session:replaced` | 같은 계정의 다른 접속·로그인·로그아웃으로 접속 종료 |
 | S→C | `server:notice` | 강퇴, 칩 소진으로 자리에서 일어남 등 안내 |

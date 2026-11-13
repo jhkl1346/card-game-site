@@ -40,7 +40,7 @@ export async function createTestServer(extra: Partial<AppOptions> = {}): Promise
     async reset() {
       clock.now = start;
       await handle.db.execute(
-        sql`TRUNCATE users, sessions, wallets, chip_logs, game_results, game_result_players, login_attempts, table_stakes CASCADE`,
+        sql`TRUNCATE users, sessions, wallets, chip_logs, game_results, game_result_players, user_stats, login_attempts, table_stakes CASCADE`,
       );
     },
     async close() {

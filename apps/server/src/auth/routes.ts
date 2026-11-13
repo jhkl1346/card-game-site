@@ -37,6 +37,10 @@ export interface AuthHooks {
   sessionsRevoked?(userId: string, keepSessionId?: string): void;
   /** 탈퇴 전 확인 (방에 앉아 있으면 막는 등). 막을 때는 사용자에게 보여 줄 메시지로 예외를 던진다 */
   beforeDeleteAccount?(userId: string): void;
+  /** 닉네임 변경 전 확인 (방에 있으면 막는 등). 막을 때는 사용자에게 보여 줄 메시지로 예외를 던진다 */
+  beforeChangeNickname?(userId: string): void;
+  /** 닉네임이 바뀜 (연결된 소켓에 반영) */
+  nicknameChanged?(userId: string, nickname: string): void;
 }
 
 export interface AuthRouteOptions {
@@ -170,8 +174,15 @@ export async function authRoutes(app: FastifyInstance, { ctx, secureCookies, hoo
 
   app.patch('/api/account/nickname', { preHandler: requireAuth }, async (request) => {
     const { nickname } = parse(changeNicknameSchema, request.body);
+    try {
+      hooks.beforeChangeNickname?.(request.auth!.userId);
+    } catch (error) {
+      throw new AuthError(409, error instanceof Error ? error.message : '지금은 닉네임을 바꿀 수 없습니다.');
+    }
     await changeNickname(ctx, request.auth!.userId, nickname);
-    return { user: await getPublicUser(ctx, request.auth!.userId) };
+    const user = await getPublicUser(ctx, request.auth!.userId);
+    if (user) hooks.nicknameChanged?.(user.id, user.nickname);
+    return { user };
   });
 
   app.post('/api/account/password', { preHandler: requireAuth }, async (request) => {

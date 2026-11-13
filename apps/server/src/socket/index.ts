@@ -5,6 +5,7 @@ import { findSession } from '../auth/sessions.js';
 import type { AuthContext } from '../auth/service.js';
 import type { ServerLimits } from '../config/limits.js';
 import type { RoomManager, RoomUser } from '../rooms/manager.js';
+import { maskBannedWords } from '../auth/banned-words.js';
 import { RoomError, type GameRoom } from '../rooms/room.js';
 
 /** 클라이언트 → 서버 요청의 응답 형식 */
@@ -28,6 +29,8 @@ export interface SocketLayer {
   lobbyChanged(): void;
   notice(userId: string, message: string): void;
   memberLeft(room: GameRoom, userId: string): void;
+  /** 닉네임이 바뀜: 연결된 소켓이 들고 있는 닉네임도 바꾼다 */
+  renameUser(userId: string, nickname: string): void;
 }
 
 export interface SocketOptions {
@@ -111,6 +114,10 @@ export function createSocketLayer(options: SocketOptions): SocketLayer {
     lobbyChanged: debounce(() => {
       io.to('lobby').emit('lobby:rooms', options.rooms().listPublic());
     }, 300),
+    renameUser(userId, nickname) {
+      const socket = userSockets.get(userId);
+      if (socket) socket.data.user = { ...socket.data.user, nickname };
+    },
     notice(userId, message) {
       userSockets.get(userId)?.emit('server:notice', { message });
     },
@@ -230,7 +237,7 @@ export function createSocketLayer(options: SocketOptions): SocketLayer {
     on('chat:send', async (payload) => {
       const room = options.rooms().roomOf(userId);
       if (!room) throw new RoomError('방에 있을 때만 채팅할 수 있습니다.');
-      const text = chatSchema.parse(payload).text.trim();
+      const text = maskBannedWords(chatSchema.parse(payload).text.trim());
       if (!text) throw new RoomError('메시지를 입력해 주세요.');
       if (Array.from(text).length > limits.chatMaxLength) throw new RoomError(`채팅은 ${limits.chatMaxLength}자까지 보낼 수 있습니다.`);
       const now = Date.now();

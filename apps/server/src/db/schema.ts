@@ -129,6 +129,30 @@ export const gameResultPlayers = pgTable(
 );
 
 /**
+ * 게임별 누적 전적 (사람만). 판이 끝날 때 recordHand와 같은 트랜잭션에서 더한다.
+ * 오래된 game_results를 보관 기간이 지나 지워도 누적 전적은 그대로 남는다.
+ */
+export const userStats = pgTable(
+  'user_stats',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    gameType: text('game_type', { enum: gameTypes }).notNull(),
+    /** 참여한 판 수 */
+    played: integer('played').notNull().default(0),
+    /** 칩을 딴 판 수 (chip_delta > 0) */
+    wins: integer('wins').notNull().default(0),
+    /** 칩 증감 합계 */
+    chipNet: bigint('chip_net', { mode: 'number' }).notNull().default(0),
+    /** 한 판에 가장 많이 딴 칩 */
+    bestWin: bigint('best_win', { mode: 'number' }).notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.gameType] })],
+);
+
+/**
  * 테이블에 앉아 있는 칩 (바이인 후 아직 지갑으로 돌아오지 않은 칩).
  * - 바이인할 때 만들고, 판이 끝날 때마다 그 판의 정산과 같은 트랜잭션에서 amount를 최신 테이블 칩으로 바꾼다.
  * - 일어날 때 지우면서 amount를 지갑에 돌려준다.

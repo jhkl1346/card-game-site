@@ -15,6 +15,12 @@ const PATHS = {
   eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   chair: 'M7 4h10v7H7zM6 11h12v3H6zM7 14v6M17 14v6',
   signal: 'M4 18h.01M8 18v-4M12 18v-8M16 18V7M20 18V4',
+  chat: 'M4 5h16v11H9.5L5 20v-4H4z',
+  send: 'M4 12 20 4l-5.5 16-3.2-6.8z',
+  soundOn: 'M4 9.5h3.5L12 6v12l-4.5-3.5H4zM15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10',
+  soundOff: 'M4 9.5h3.5L12 6v12l-4.5-3.5H4zM16 10l4 4M20 10l-4 4',
+  back: 'M15 5l-7 7 7 7',
+  chart: 'M5 20V11M12 20V5M19 20v-6M3.5 20h17',
 } as const;
 
 export type IconName = keyof typeof PATHS;

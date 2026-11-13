@@ -2,8 +2,10 @@ import { buildApp } from './app.js';
 import { deleteStaleLoginAttempts } from './auth/login-limit.js';
 import { deleteExpiredSessions } from './auth/sessions.js';
 import { DEFAULT_AUTH_CONFIG } from './config/auth.js';
+import { DEFAULT_RECORDS_CONFIG } from './config/records.js';
 import { loadEnv } from './config/env.js';
 import { openDb } from './db/client.js';
+import { deleteOldGameResults } from './stats/service.js';
 import { WalletService } from './wallet/service.js';
 
 /**
@@ -21,13 +23,15 @@ const { app } = await buildApp({
   logger: true,
 });
 
-// 무료 DB 용량을 아끼려고 만료된 세션과 오래된 로그인 실패 기록을 1시간마다 지운다
+// 무료 DB 용량을 아끼려고 만료된 세션, 오래된 로그인 실패 기록, 보관 기간이 지난 판별 기록을 1시간마다 지운다
 const cleanup = async () => {
   try {
     const now = new Date();
     const removed = await deleteExpiredSessions(handle.db, now);
     await deleteStaleLoginAttempts(handle.db, now, DEFAULT_AUTH_CONFIG);
+    const oldGames = await deleteOldGameResults(handle.db, now, DEFAULT_RECORDS_CONFIG);
     if (removed > 0) app.log.info(`만료된 세션 ${removed}개를 정리했습니다.`);
+    if (oldGames > 0) app.log.info(`보관 기간이 지난 판 기록 ${oldGames}개를 정리했습니다.`);
   } catch (error) {
     app.log.error({ err: error }, '정리 작업 실패');
   }

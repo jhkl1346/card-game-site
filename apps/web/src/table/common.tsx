@@ -153,6 +153,7 @@ export function TopBar({
   onRules,
   onLeave,
   extra,
+  tools,
 }: {
   snap: InRoomSnapshot;
   /** 보유 칩 합계 (지갑 + 지금 테이블 칩) */
@@ -160,6 +161,8 @@ export function TopBar({
   onRules: () => void;
   onLeave: () => void;
   extra?: ReactNode;
+  /** 오른쪽 버튼 앞에 놓을 도구 (채팅, 소리) */
+  tools?: ReactNode;
 }) {
   const r = snap.room;
   return (
@@ -185,6 +188,7 @@ export function TopBar({
             <b>{won(holdings)}</b>
           </span>
         )}
+        {tools}
         <button type="button" onClick={onRules} className="relative flex h-[30px] items-center gap-1 rounded-md border border-gold/45 px-2.5 before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-[''] text-[12px] font-bold text-gold hover:bg-gold/10">
           <Icon name="book" className="h-3.5 w-3.5" />
           족보

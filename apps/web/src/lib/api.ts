@@ -18,6 +18,29 @@ export interface WalletInfo {
   reliefAmount: number;
 }
 
+export type StatGameType = 'stud7' | 'holdem' | 'hula';
+
+export interface GameStat {
+  gameType: StatGameType;
+  played: number;
+  wins: number;
+  chipNet: number;
+  bestWin: number;
+}
+
+export interface MyStats {
+  perGame: GameStat[];
+  total: Omit<GameStat, 'gameType'>;
+  recent: Array<{ gameId: string; gameType: StatGameType; endedAt: string; chipDelta: number; rank: number; players: number }>;
+}
+
+export interface RankingEntry {
+  rank: number;
+  nickname: string;
+  chips: number;
+  isMe: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -62,6 +85,12 @@ export const api = {
     request<{ available: boolean; message?: string }>('GET', `/api/auth/check-nickname?nickname=${encodeURIComponent(nickname)}`),
   wallet: () => request<WalletInfo>('GET', '/api/wallet'),
   claimRelief: () => request<{ amount: number; balance: number }>('POST', '/api/wallet/relief'),
+  stats: () => request<MyStats>('GET', '/api/stats/me'),
+  ranking: () => request<{ top: RankingEntry[]; me: RankingEntry | null }>('GET', '/api/ranking'),
+  changeNickname: (nickname: string) => request<{ user: PublicUser }>('PATCH', '/api/account/nickname', { nickname }),
+  changePassword: (input: { currentPassword: string; newPassword: string; newPasswordConfirm: string }) =>
+    request<{ ok: true }>('POST', '/api/account/password', input),
+  deleteAccount: (password: string) => request<{ ok: true }>('POST', '/api/account/delete', { password }),
 };
 
 /**

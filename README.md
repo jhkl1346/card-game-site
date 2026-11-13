@@ -7,6 +7,9 @@
 - 아이디/비밀번호 로그인, 칩·전적·닉네임 영구 저장
 - 칩은 **가상 재화**이며 실제 돈과 연결되지 않습니다.
 
+**▶ 플레이하기: https://card-game-site-et7u.onrender.com**
+(무료 서버라 15분 동안 접속이 없으면 잠들고, 첫 접속은 1분쯤 걸립니다.)
+
 > 진행 상황: 1~9단계를 모두 구현했습니다. 배포는 Render(서버+화면) + Neon(DB) 무료 구성입니다. 아래 "배포"를 참고하세요.
 
 ## 문서
@@ -187,7 +190,7 @@ pnpm sim:hula --players 4 --games 500
 - TypeScript는 typescript-eslint 호환을 위해 6.0대로 고정했습니다.
 
 ## 배포 (무료)
-- 구성: **Render 무료 웹 서비스** 하나가 화면·API·Socket.IO를 함께 제공 + **Neon 무료 PostgreSQL**. 주소는 Render의 무료 서브도메인(`https://<이름>.onrender.com`)입니다.
+- 구성: **Render 무료 웹 서비스** 하나가 화면·API·Socket.IO를 함께 제공 + **Neon 무료 PostgreSQL**. 주소: https://card-game-site-et7u.onrender.com (Render 무료 서브도메인)
 - 절차·환경 변수: [`docs/deploy-guide.md`](docs/deploy-guide.md). 설정 파일: [`render.yaml`](render.yaml)
 - 배포는 자동으로 하지 않고 **Actions → 배포 → Run workflow**(`.github/workflows/deploy.yml`, `workflow_dispatch`)로 직접 실행합니다. Render 배포 훅 주소는 `RENDER_DEPLOY_HOOK_URL` 시크릿에만 저장합니다.
 
